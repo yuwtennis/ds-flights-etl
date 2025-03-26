@@ -1,0 +1,24 @@
+[project]
+name = "ds-flights-etl"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "ywatanabe",email = "yu.w.tennis@gmail.com"}
+]
+readme = "README.md"
+requires-python = "~=3.11.9"
+dependencies = [
+    "apache-beam~=2.63.0"
+]
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pylint = "~3.1.0"
+pytest = "~8.2.0"
+mypy = "~1.10.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
