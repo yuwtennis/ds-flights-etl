@@ -1,5 +1,5 @@
 [project]
-name = "ds-flights-etl"
+name = "dsflightsetl"
 version = "0.1.0"
 description = ""
 authors = [
@@ -8,14 +8,16 @@ authors = [
 readme = "README.md"
 requires-python = "~=3.11.9"
 dependencies = [
-    "apache-beam~=2.63.0"
+    "apache-beam[gcp]~=2.64.0",
+    "timezonefinder~=6.5.9",
+    "pytz~=2025.2"
 ]
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-pylint = "~3.1.0"
+pylint = "~2.15"
 pytest = "~8.2.0"
 mypy = "~1.10.0"
 
