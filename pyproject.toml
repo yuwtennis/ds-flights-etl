@@ -28,3 +28,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.autopep8]
 in-place = true
+max_line_length = 120
