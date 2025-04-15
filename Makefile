@@ -1,6 +1,9 @@
 
 GIT_COMMIT_HASH ?= $$(git rev-parse HEAD)
 
+init:
+	poetry run pre-commit install
+
 build:
 	docker build -t dsflightsetl:$(GIT_COMMIT_HASH) .
 
