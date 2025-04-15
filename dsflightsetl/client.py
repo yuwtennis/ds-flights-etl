@@ -3,7 +3,7 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 
-from dsflightsetl.airport import AirportLocation, AirportCsvPolicies
+from dsflightsetl.airport import AirportLocation, AirportCsvPolicies, Airport
 from dsflightsetl.args import parse_args
 
 AIRPORT_CSV_PATH = "gs://dsongcp-452504-cf-staging/bts/airport.csv"
@@ -27,6 +27,10 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             | beam.Filter(
                 lambda line: not AirportCsvPolicies.is_header(line)
                 and AirportCsvPolicies.is_us_airport(line)
+                and AirportCsvPolicies.has_valid_coordinates(
+                    line.split(",")[Airport.LATITUDE.value],
+                    line.split(",")[Airport.LONGITUDE.value],
+                )
             )
             | beam.Map(lambda line: AirportLocation.of(line))
         )

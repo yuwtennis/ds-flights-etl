@@ -1,5 +1,7 @@
-""" Class objects representing Airport CSV by BTS """
+"""Class objects representing Airport CSV by BTS"""
+
 import csv
+import dataclasses
 from enum import Enum, auto
 from typing import Optional
 
@@ -7,7 +9,8 @@ import timezonefinder
 
 
 class Airport(Enum):
-    """ Airport Attributes """
+    """Airport Attributes"""
+
     AIRPORT_SEQ_ID = 0
     AIRPORT_ID = auto()
     AIRPORT = auto()
@@ -42,39 +45,42 @@ class Airport(Enum):
     AIRPORT_IS_LATEST = auto()
 
 
+@dataclasses.dataclass
 class AirportLocation:  # pylint: disable=too-few-public-methods
-    """ Object representing the location of airport """
+    """Object representing the location of airport"""
+
     airport_seq_id: int
     latitude: float
     longitude: float
     timezone: Optional[str]
 
     @classmethod
-    def of(cls, csv_line: str) -> 'AirportLocation':  # pylint: disable=invalid-name
+    def of(cls, csv_line: str) -> "AirportLocation":  # pylint: disable=invalid-name
         """
 
         :param csv_line:
         :return: AirportLocation
         """
         csv_obj: list[str] = next(csv.reader([csv_line]))
-
         tz_finder = timezonefinder.TimezoneFinder()
-        inst = cls()
-        inst.airport_seq_id = int(csv_obj[Airport.AIRPORT_SEQ_ID.value])
-        inst.latitude = float(csv_obj[Airport.LATITUDE.value])
-        inst.longitude = float(csv_obj[Airport.LONGITUDE.value])
-        inst.timezone = tz_finder.timezone_at(
-            lng=inst.longitude, lat=inst.latitude)
+        lat = float(csv_obj[Airport.LATITUDE.value])
+        lon = float(csv_obj[Airport.LONGITUDE.value])
 
-        return inst
+        return cls(
+            airport_seq_id=int(csv_obj[Airport.AIRPORT_SEQ_ID.value]),
+            latitude=lat,
+            longitude=lon,
+            timezone=tz_finder.timezone_at(lng=lon, lat=lat),
+        )
 
     def to_csv(self):
-        """ To csv """
+        """To csv"""
         return f"{self.airport_seq_id},{self.latitude},{self.longitude}"
 
 
 class AirportCsvPolicies:
-    """ Policies for evaluating the csv """
+    """Policies for evaluating the csv"""
+
     @staticmethod
     def is_header(line: str) -> bool:
         """
@@ -93,4 +99,21 @@ class AirportCsvPolicies:
         :param line:
         :return:
         """
-        return 'United States' in line
+        return "United States" in line
+
+    @staticmethod
+    def has_valid_coordinates(lat: str, lon: str) -> bool:
+        """
+        Asserts whether the given coordinates are valid
+
+        :param lat:
+        :param lon:
+        :return:
+        """
+        try:
+            float(lat)
+            float(lon)
+        except ValueError:
+            return False
+
+        return True
