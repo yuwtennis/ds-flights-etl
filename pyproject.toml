@@ -20,7 +20,11 @@ optional = true
 pylint = "~2.15"
 pytest = "~8.2.0"
 mypy = "~1.10.0"
+pre-commit = "~4.1.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.autopep8]
+in-place = true
