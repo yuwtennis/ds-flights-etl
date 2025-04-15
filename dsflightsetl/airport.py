@@ -62,16 +62,19 @@ class AirportLocation:  # pylint: disable=too-few-public-methods
         :return: AirportLocation
         """
         csv_obj: list[str] = next(csv.reader([csv_line]))
-        tz_finder = timezonefinder.TimezoneFinder()
         lat = float(csv_obj[Airport.LATITUDE.value])
         lon = float(csv_obj[Airport.LONGITUDE.value])
 
-        return cls(
-            airport_seq_id=int(csv_obj[Airport.AIRPORT_SEQ_ID.value]),
-            latitude=lat,
-            longitude=lon,
-            timezone=tz_finder.timezone_at(lng=lon, lat=lat),
-        )
+        attrs = {}
+
+        attrs["airport_set_id"] = int(csv_obj[Airport.AIRPORT_SEQ_ID.value])
+        attrs["lat"] = lat
+        attrs["lon"] = lon
+
+        tz_finder = timezonefinder.TimezoneFinder()
+        attrs["timezone"] = tz_finder.timezone_at(lng=lon, lat=lat)
+
+        return cls(**attrs)
 
     def to_csv(self):
         """To csv"""
