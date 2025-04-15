@@ -75,7 +75,7 @@ class AirportLocation:  # pylint: disable=too-few-public-methods
 
     def to_csv(self):
         """To csv"""
-        return f"{self.airport_seq_id},{self.latitude},{self.longitude}"
+        return f"{self.airport_seq_id},{self.latitude},{self.longitude},{self.timezone}"
 
 
 class AirportCsvPolicies:
