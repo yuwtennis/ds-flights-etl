@@ -26,7 +26,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             | beam.io.ReadFromText(AIRPORT_CSV_PATH)
             | beam.Filter(
                 lambda line: not AirportCsvPolicies.is_header(line)
-                and AirportCsvPolicies.is_us_airport
+                and AirportCsvPolicies.is_us_airport(line)
             )
             | beam.Map(lambda line: AirportLocation.of(line))
         )
