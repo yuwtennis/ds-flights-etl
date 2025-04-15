@@ -1,4 +1,5 @@
 """ Class objects representing Airport CSV by BTS """
+import csv
 from enum import Enum, auto
 
 
@@ -36,3 +37,30 @@ class Airport(Enum):
     AIRPORT_THRU_DATE = auto()
     AIRPORT_IS_CLOSED = auto()
     AIRPORT_IS_LATEST = auto()
+
+
+class AirportLocation:  # pylint: disable=too-few-public-methods
+    """ Object representing the location of airport """
+    airport_seq_id: str
+    latitude: str
+    longitude: str
+
+    @classmethod
+    def of(cls, csv_line: str) -> 'AirportLocation':  # pylint: disable=invalid-name
+        """
+
+        :param csv_line:
+        :return: AirportLocation
+        """
+        csv_obj: list[str] = next(csv.reader([csv_line]))
+
+        inst = cls()
+        inst.airport_seq_id = csv_obj[Airport.AIRPORT_SEQ_ID.value]
+        inst.latitude = csv_obj[Airport.LATITUDE.value]
+        inst.longitude = csv_obj[Airport.LONGITUDE.value]
+
+        return inst
+
+    def to_csv(self):
+        """ To csv """
+        return f"{self.airport_seq_id},{self.latitude},{self.longitude}"
