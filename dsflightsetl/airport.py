@@ -1,6 +1,9 @@
 """ Class objects representing Airport CSV by BTS """
 import csv
 from enum import Enum, auto
+from typing import Optional
+
+import timezonefinder
 
 
 class Airport(Enum):
@@ -41,9 +44,10 @@ class Airport(Enum):
 
 class AirportLocation:  # pylint: disable=too-few-public-methods
     """ Object representing the location of airport """
-    airport_seq_id: str
-    latitude: str
-    longitude: str
+    airport_seq_id: int
+    latitude: float
+    longitude: float
+    timezone: Optional[str]
 
     @classmethod
     def of(cls, csv_line: str) -> 'AirportLocation':  # pylint: disable=invalid-name
@@ -54,13 +58,39 @@ class AirportLocation:  # pylint: disable=too-few-public-methods
         """
         csv_obj: list[str] = next(csv.reader([csv_line]))
 
+        tz_finder = timezonefinder.TimezoneFinder()
         inst = cls()
         inst.airport_seq_id = csv_obj[Airport.AIRPORT_SEQ_ID.value]
         inst.latitude = csv_obj[Airport.LATITUDE.value]
         inst.longitude = csv_obj[Airport.LONGITUDE.value]
+        inst.timezone = tz_finder.timezone_at(
+            lng=inst.longitude, lat=inst.latitude)
 
         return inst
 
     def to_csv(self):
         """ To csv """
         return f"{self.airport_seq_id},{self.latitude},{self.longitude}"
+
+
+class AirportCsvPolicies:
+    """ Policies for evaluating the csv """
+    @staticmethod
+    def is_header(line: str) -> bool:
+        """
+        Asserts whether the string is the csv header
+
+        :param line:
+        :return:
+        """
+        return line.startswith("AIRPORT_SEQ_ID")
+
+    @staticmethod
+    def is_us_airport(line: str) -> bool:
+        """
+        Asserts whether the line includes timezones of US
+
+        :param line:
+        :return:
+        """
+        return 'United States' in line

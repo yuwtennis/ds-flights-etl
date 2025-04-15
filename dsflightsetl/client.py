@@ -3,7 +3,7 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 
-from dsflightsetl.airport import AirportLocation
+from dsflightsetl.airport import AirportLocation, AirportCsvPolicies
 from dsflightsetl.args import parse_args
 
 AIRPORT_CSV_PATH = 'gs://dsongcp-452504-cf-staging/bts/airport.csv'
@@ -23,13 +23,15 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     with beam.Pipeline(options=options) as pipeline:
         airports = (pipeline
                     | beam.io.ReadFromText(AIRPORT_CSV_PATH)
+                    | beam.Filter(lambda line: not AirportCsvPolicies.is_header(line))
+                    | beam.Filter(AirportCsvPolicies.is_us_airport)
                     | beam.Map(lambda line: AirportLocation.of(line))  # pylint: disable=unnecessary-lambda
                     )
 
         _ = (airports
              | beam.Map(lambda airport: airport.to_csv())  # pylint: disable=unnecessary-lambda
              | beam.io.WriteToText(
-                 file_path_prefix="gs://dsongcp-452504-cf-staging/extracted_airports",
+                 file_path_prefix="gs://dsongcp-452504-cf-staging/tmp/extracted_airports",
                  file_name_suffix=".csv"
              )
              )
