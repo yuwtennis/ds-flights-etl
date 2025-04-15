@@ -60,9 +60,9 @@ class AirportLocation:  # pylint: disable=too-few-public-methods
 
         tz_finder = timezonefinder.TimezoneFinder()
         inst = cls()
-        inst.airport_seq_id = csv_obj[Airport.AIRPORT_SEQ_ID.value]
-        inst.latitude = csv_obj[Airport.LATITUDE.value]
-        inst.longitude = csv_obj[Airport.LONGITUDE.value]
+        inst.airport_seq_id = int(csv_obj[Airport.AIRPORT_SEQ_ID.value])
+        inst.latitude = float(csv_obj[Airport.LATITUDE.value])
+        inst.longitude = float(csv_obj[Airport.LONGITUDE.value])
         inst.timezone = tz_finder.timezone_at(
             lng=inst.longitude, lat=inst.latitude)
 
