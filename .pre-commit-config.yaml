@@ -1,18 +1,22 @@
 repos:
-  -   repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v5.0.0  # Use the ref you want to point at
-      hooks:
-        -   id: trailing-whitespace
-        -   id: end-of-file-fixer
   -   repo: https://github.com/python-poetry/poetry
-      rev: ''  # add version here
+      rev: 2.1.2
       hooks:
         -   id: poetry-check
         -   id: poetry-lock
+        -   id: poetry-install
+  -   repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v5.0.0
+      hooks:
+        -   id: trailing-whitespace
+        -   id: end-of-file-fixer
+        -   id: check-yaml
+        -   id: check-toml
   -   repo: https://github.com/hhatto/autopep8
       rev: v2.3.2
       hooks:
         -   id: autopep8
+            types: [python]
   - repo: local
     hooks:
       - id: pylint
@@ -25,7 +29,3 @@ repos:
             "-rn", # Only display messages
             "-sn", # Don't display the score
           ]
-  -   repo: https://github.com/pre-commit/mirrors-mypy
-      rev: ''
-      hooks:
-        -   id: mypy
