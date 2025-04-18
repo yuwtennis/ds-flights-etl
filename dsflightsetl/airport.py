@@ -1,11 +1,11 @@
 """Class objects representing Airport CSV by BTS"""
 
 import csv
-import dataclasses
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Any
 
 import timezonefinder
+from pydantic import BaseModel
 
 
 class Airport(Enum):
@@ -45,9 +45,8 @@ class Airport(Enum):
     AIRPORT_IS_LATEST = auto()
 
 
-@dataclasses.dataclass
-class AirportLocation:  # pylint: disable=too-few-public-methods
-    """Object representing the location of airport"""
+class AirportLocation(BaseModel):  # pylint: disable=too-few-public-methods
+    """Airport location entity"""
 
     airport_seq_id: int
     latitude: float
@@ -65,7 +64,7 @@ class AirportLocation:  # pylint: disable=too-few-public-methods
         lat = float(csv_obj[Airport.LATITUDE.value])
         lon = float(csv_obj[Airport.LONGITUDE.value])
 
-        attrs = {}
+        attrs: dict[str, Any] = {}
 
         attrs["airport_set_id"] = int(csv_obj[Airport.AIRPORT_SEQ_ID.value])
         attrs["lat"] = lat
@@ -120,3 +119,13 @@ class AirportCsvPolicies:
             return False
 
         return True
+
+    @staticmethod
+    def is_valid_time(hhmm: str) -> bool:
+        """
+        Asserts whether given hour minute is a valid value
+
+        :param hhmm:
+        :return:
+        """
+        return len(hhmm) > 0 and int(hhmm) < 2400
