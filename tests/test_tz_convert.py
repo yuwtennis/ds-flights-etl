@@ -6,8 +6,8 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 
 from dsflightsetl.airport import AirportLocation
-from dsflightsetl.flight import FlightPolicy
-from dsflightsetl.tz_convert import UTCConversionFn
+from dsflightsetl.flight import ValidFlights
+from dsflightsetl.tz_convert import UTCConvert
 
 
 @beam.ptransform_fn
@@ -35,7 +35,7 @@ def load_airport_csv(pcoll: Any) -> Any:
     )
 
 
-def test_tz_convert_flight_sample(airport_samples, flight_sample):
+def test_tz_convert_flight_sample(airport_location_samples, flight_sample):
     """
     Test pipeline for timezone conversion using single sample
 
@@ -46,18 +46,19 @@ def test_tz_convert_flight_sample(airport_samples, flight_sample):
     with TestPipeline() as pipeline:
         airports: Any = (
             pipeline
-            | "Load airport location info" >> beam.io.ReadFromText(airport_samples)
+            | "Load airport location info"
+            >> beam.io.ReadFromText(airport_location_samples)
             | "load" >> load_airport_csv()  # pylint: disable=no-value-for-parameter
         )
 
         _ = (
             pipeline
             | "Load flight samples" >> beam.Create([flight_sample])
-            | "UTC conversion" >> UTCConversionFn(beam.pvalue.AsDict(airports))
+            | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
         )
 
 
-def test_tz_convert_flight_samples(airport_samples, flight_samples):
+def test_tz_convert_flight_samples(airport_location_samples, flight_samples):
     """
     Test pipeline for timezone conversion using flight samples
 
@@ -68,14 +69,14 @@ def test_tz_convert_flight_samples(airport_samples, flight_samples):
     with TestPipeline() as pipeline:
         airports: Any = (
             pipeline
-            | "Load airport location info" >> beam.io.ReadFromText(airport_samples)
+            | "Load airport location info"
+            >> beam.io.ReadFromText(airport_location_samples)
             | "load" >> load_airport_csv()  # pylint: disable=no-value-for-parameter
         )
 
         _ = (
             pipeline
             | "Load flight samples" >> beam.io.ReadFromText(flight_samples)
-            | "Filter out invalid element"
-            >> beam.Filter(FlightPolicy.has_valid_num_of_fields)
-            | "UTC conversion" >> UTCConversionFn(beam.pvalue.AsDict(airports))
+            | "Valid flights only" >> ValidFlights()
+            | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
         )

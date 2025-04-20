@@ -78,7 +78,7 @@ def as_utc(date: str, hhmm: str, tzone: Optional[str]) -> str:
         raise err
 
 
-class UTCConversionFn(beam.PTransform):
+class UTCConvert(beam.PTransform):
     """Convert time into UTC"""
 
     def __init__(self, airports: beam.pvalue.AsDict):
@@ -89,7 +89,7 @@ class UTCConversionFn(beam.PTransform):
         super().__init__()
         self._airports = airports
 
-    def expand(self, pcoll: Any):  # pylint: disable=arguments-renamed
+    def expand(self, pcoll: Any) -> Any:  # pylint: disable=arguments-renamed
         """
         Takes pcollection of json string flights and convert time into UTC
 

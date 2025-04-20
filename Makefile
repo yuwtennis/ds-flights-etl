@@ -11,4 +11,4 @@ test:
 	poetry run pylint __main__.py
 	poetry run pylint dsflightsetl/
 	poetry run mypy dsflightsetl/
-	poetry run pytest tests/
+	poetry run pytest -s tests/

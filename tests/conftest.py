@@ -4,7 +4,13 @@ import pytest
 
 
 @pytest.fixture
-def airport_samples():
+def set_log_level_debug(monkeypatch):
+    """Set loglevel to debug for testing"""
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+
+
+@pytest.fixture
+def airport_location_samples():
     """Returns path as string"""
     return "tests/fixtures/extracted_airports.csv"
 
@@ -40,3 +46,9 @@ def flight_sample():
         '"DIVERTED":false,'
         '"DISTANCE":"158.00"}'
     )
+
+
+@pytest.fixture
+def airport_samples():
+    """Returns path as string"""
+    return "tests/fixtures/airport.csv"

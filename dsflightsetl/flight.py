@@ -4,6 +4,8 @@ import json
 from typing import Any
 
 from pydantic import BaseModel
+import apache_beam as beam
+from dsflightsetl import LOGGER
 
 NUM_OF_FIELDS = 19
 
@@ -39,6 +41,7 @@ class Flight(BaseModel):
         :param json_str:
         :return:
         """
+        LOGGER.debug("flight: %s", json_str)
         return Flight(**normalize_dict_keys(json.loads(json_str)))
 
 
@@ -55,10 +58,34 @@ class FlightPolicy:
     """Policies for Flight entity"""
 
     @staticmethod
-    def has_valid_num_of_fields(json_str: str):
+    def will_flight_depart(json_str: str):
         """
 
         :param json_str:
         :return:
         """
-        return len(json.loads(json_str).keys()) == NUM_OF_FIELDS
+        return json.loads(json_str)["CANCELLED"] is False
+
+    @staticmethod
+    def has_flight_arrived(json_str: str):
+        """
+
+        :param json_str:
+        :return:
+        """
+        return json.loads(json_str)["DIVERTED"] is False
+
+
+class ValidFlights(beam.PTransform):
+    """Valid flights"""
+
+    def expand(self, pcoll: Any) -> Any:  # pylint: disable=arguments-renamed
+        """
+
+        :param pcoll:
+        :return:
+        """
+        return pcoll | beam.Filter(
+            lambda line: FlightPolicy.will_flight_depart(line)
+            and FlightPolicy.has_flight_arrived(line)
+        )

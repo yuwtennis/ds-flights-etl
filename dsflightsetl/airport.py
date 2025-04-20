@@ -3,9 +3,12 @@
 import csv
 from enum import Enum, auto
 from typing import Optional, Any
+import apache_beam as beam
 
 import timezonefinder
 from pydantic import BaseModel
+
+from dsflightsetl import LOGGER
 
 
 class Airport(Enum):
@@ -54,7 +57,9 @@ class AirportLocation(BaseModel):  # pylint: disable=too-few-public-methods
     timezone: Optional[str]
 
     @classmethod
-    def of(cls, csv_line: str) -> "AirportLocation":  # pylint: disable=invalid-name
+    def from_flight_csv(
+        cls, csv_line: str
+    ) -> "AirportLocation":  # pylint: disable=invalid-name
         """
 
         :param csv_line:
@@ -66,12 +71,14 @@ class AirportLocation(BaseModel):  # pylint: disable=too-few-public-methods
 
         attrs: dict[str, Any] = {}
 
-        attrs["airport_set_id"] = int(csv_obj[Airport.AIRPORT_SEQ_ID.value])
-        attrs["lat"] = lat
-        attrs["lon"] = lon
+        attrs["airport_seq_id"] = int(csv_obj[Airport.AIRPORT_SEQ_ID.value])
+        attrs["latitude"] = lat
+        attrs["longitude"] = lon
 
         tz_finder = timezonefinder.TimezoneFinder()
         attrs["timezone"] = tz_finder.timezone_at(lng=lon, lat=lat)
+
+        LOGGER.debug("attrs: %s, csvline: %s", attrs, csv_line)
 
         return cls(**attrs)
 
@@ -129,3 +136,27 @@ class AirportCsvPolicies:
         :return:
         """
         return len(hhmm) > 0 and int(hhmm) < 2400
+
+
+class UsAirports(beam.PTransform):
+    """Return valid results from given csv line"""
+
+    def expand(self, pcoll: Any) -> Any:  # pylint: disable=arguments-renamed
+        """
+        Filter out unwanted csv line and return Airport location
+
+        :param pcoll:
+        :return:
+        """
+        return (
+            pcoll
+            | beam.Filter(
+                lambda line: not AirportCsvPolicies.is_header(line)
+                and AirportCsvPolicies.is_us_airport(line)
+                and AirportCsvPolicies.has_valid_coordinates(
+                    line.split(",")[Airport.LATITUDE.value],
+                    line.split(",")[Airport.LONGITUDE.value],
+                )
+            )
+            | beam.Map(lambda line: AirportLocation.from_flight_csv(line))
+        )
