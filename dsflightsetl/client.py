@@ -5,8 +5,11 @@ from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 
 from dsflightsetl.airport import AirportLocation, AirportCsvPolicies, Airport
 from dsflightsetl.args import parse_args
+from dsflightsetl.flight import FlightPolicy
+from dsflightsetl.tz_convert import UTCConversionFn
 
 AIRPORT_CSV_PATH = "gs://dsongcp-452504-cf-staging/bts/airport.csv"
+FLIGHT_SAMPLES = "gs://dsongcp-452504-cf-staging/flights/ch4/flights_sample.json"
 
 
 def run(argv: list[str], save_main_sessions: bool = True) -> None:
@@ -36,12 +39,10 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
         )
 
         _ = (
-            airports
-            | beam.Map(lambda airport: airport.to_csv())
-            | beam.io.WriteToText(
-                file_path_prefix="gs://dsongcp-452504-cf-staging/tmp/extracted_airports",
-                file_name_suffix=".csv",
-            )
+            pipeline
+            | "Load flight samples" >> beam.io.ReadFromText(FLIGHT_SAMPLES)
+            | "Filter out invalid element"
+            >> beam.Filter(FlightPolicy.has_valid_num_of_fields)
+            | "UTC conversion" >> UTCConversionFn(beam.pvalue.AsDict(airports))
         )
-
     pipeline.run()
