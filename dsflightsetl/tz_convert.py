@@ -78,7 +78,7 @@ def as_utc(date: str, hhmm: str, tzone: Optional[str]) -> str:
         raise err
 
 
-class UTCConversion(beam.PTransform):
+class UTCConversionFn(beam.PTransform):
     """Convert time into UTC"""
 
     def __init__(self, airports: beam.pvalue.AsDict):

@@ -7,7 +7,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 
 from dsflightsetl.airport import AirportLocation
 from dsflightsetl.flight import FlightPolicy
-from dsflightsetl.tz_convert import UTCConversion
+from dsflightsetl.tz_convert import UTCConversionFn
 
 
 @beam.ptransform_fn
@@ -53,7 +53,7 @@ def test_tz_convert_flight_sample(airport_samples, flight_sample):
         _ = (
             pipeline
             | "Load flight samples" >> beam.Create([flight_sample])
-            | "UTC conversion" >> UTCConversion(beam.pvalue.AsDict(airports))
+            | "UTC conversion" >> UTCConversionFn(beam.pvalue.AsDict(airports))
         )
 
 
@@ -77,5 +77,5 @@ def test_tz_convert_flight_samples(airport_samples, flight_samples):
             | "Load flight samples" >> beam.io.ReadFromText(flight_samples)
             | "Filter out invalid element"
             >> beam.Filter(FlightPolicy.has_valid_num_of_fields)
-            | "UTC conversion" >> UTCConversion(beam.pvalue.AsDict(airports))
+            | "UTC conversion" >> UTCConversionFn(beam.pvalue.AsDict(airports))
         )
