@@ -57,7 +57,7 @@ class AirportLocation(BaseModel):  # pylint: disable=too-few-public-methods
     timezone: Optional[str]
 
     @classmethod
-    def from_flight_csv(
+    def from_airport_csv(
         cls, csv_line: str
     ) -> "AirportLocation":  # pylint: disable=invalid-name
         """
@@ -81,6 +81,22 @@ class AirportLocation(BaseModel):  # pylint: disable=too-few-public-methods
         LOGGER.debug("attrs: %s, csvline: %s", attrs, csv_line)
 
         return cls(**attrs)
+
+    @classmethod
+    def from_airport_location_csv(cls, csv_line: str):
+        """
+
+        :param csv_line:
+        :return:
+        """
+        csv_obj: list[str] = next(csv.reader([csv_line]))
+
+        return cls(
+            airport_seq_id=int(csv_obj[0]),
+            latitude=float(csv_obj[1]),
+            longitude=float(csv_obj[2]),
+            timezone=csv_obj[3],
+        )
 
     def to_csv(self):
         """To csv"""
@@ -148,15 +164,11 @@ class UsAirports(beam.PTransform):
         :param pcoll:
         :return:
         """
-        return (
-            pcoll
-            | beam.Filter(
-                lambda line: not AirportCsvPolicies.is_header(line)
-                and AirportCsvPolicies.is_us_airport(line)
-                and AirportCsvPolicies.has_valid_coordinates(
-                    line.split(",")[Airport.LATITUDE.value],
-                    line.split(",")[Airport.LONGITUDE.value],
-                )
+        return pcoll | beam.Filter(
+            lambda line: not AirportCsvPolicies.is_header(line)
+            and AirportCsvPolicies.is_us_airport(line)
+            and AirportCsvPolicies.has_valid_coordinates(
+                line.split(",")[Airport.LATITUDE.value],
+                line.split(",")[Airport.LONGITUDE.value],
             )
-            | beam.Map(lambda line: AirportLocation.from_flight_csv(line))
         )

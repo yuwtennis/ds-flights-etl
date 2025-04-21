@@ -1,7 +1,7 @@
 """Flight object"""
 
 import json
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel
 import apache_beam as beam
@@ -17,8 +17,10 @@ class Flight(BaseModel):
     unique_carrier: str
     origin_airport_seq_id: int
     origin: str
+    dep_airport_tzoffset: Optional[float] = None
     dest_airport_seq_id: int
     dest: str
+    arr_airport_tzoffset: Optional[float] = None
     crs_dep_time: str
     dep_time: str
     dep_delay: int

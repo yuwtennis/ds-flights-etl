@@ -2,7 +2,7 @@
 
 import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
-from dsflightsetl.airport import Airport, UsAirports
+from dsflightsetl.airport import Airport, UsAirports, AirportLocation
 
 
 def test_airport():
@@ -16,4 +16,10 @@ def test_airport():
 def test_airport_location(airport_samples):
     """Test airport entities"""
     with TestPipeline() as pipeline:
-        _ = pipeline | beam.io.ReadFromText(airport_samples) | UsAirports()
+        _ = (
+            pipeline
+            | beam.io.ReadFromText(airport_samples)
+            | "Only US airports" >> UsAirports()
+            | "To Airport location entities"
+            >> beam.Map(lambda line: AirportLocation.from_airport_csv(line))
+        )

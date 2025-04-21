@@ -2,9 +2,10 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Optional, Generator
+from typing import Any, Generator, Tuple, Optional
 import pytz
 import apache_beam as beam
+
 from dsflightsetl.airport import AirportCsvPolicies, AirportLocation
 from dsflightsetl.flight import Flight
 
@@ -30,30 +31,37 @@ def tz_correct(
             timezone = airport_timezones[
                 getattr(flight, "origin_airport_seq_id")
             ].timezone
-            flight_tmp[field] = as_utc(
-                flight.fl_date,
-                getattr(flight, field),
-                timezone,
+            flight_tmp[field], dep_tz = as_utc_with_standard_time_offset(
+                flight.fl_date, getattr(flight, field), timezone
             )
+
+        flight_tmp["dep_airport_tzoffset"] = dep_tz
 
         for field in ["crs_arr_time", "arr_time", "wheels_on"]:
             timezone = airport_timezones[
                 getattr(flight, "dest_airport_seq_id")
             ].timezone
-            flight_tmp[field] = as_utc(
-                flight.fl_date,
-                getattr(flight, field),
-                timezone,
+            flight_tmp[field], arr_tz = as_utc_with_standard_time_offset(
+                flight.fl_date, getattr(flight, field), timezone
             )
+
+        flight_tmp["arr_airport_tzoffset"] = arr_tz
 
         yield Flight(**flight_tmp)
     except KeyError:
         logging.exception("Unknown airport %s", flight.model_dump())
 
 
-def as_utc(date: str, hhmm: str, tzone: Optional[str]) -> str:
+def as_utc_with_standard_time_offset(
+    date: str, hhmm: str, tzone: Optional[str]
+) -> Tuple[str, float]:
     """
-    Convert date time string into utc by putting origin airport timezone into account
+    Convert date time string into utc with standard time offsets.
+    This is a workaround with is_dst.
+
+    https://pypi.org/project/pytz/
+    >The is_dst parameter is ignored for most timestamps.
+    >It is only used during DST transition ambiguous periods to resolve that ambiguity.
 
     :param date:
     :param hhmm:
@@ -67,15 +75,31 @@ def as_utc(date: str, hhmm: str, tzone: Optional[str]) -> str:
 
             # Tip: localize will convert into midnight
             # then add hours from that offset will be a safe way
-            loc_dt = loc_tz.localize(
-                datetime.strptime(VALID_DATE_FMT, date), is_dst=False
-            )
+            loc_dt = loc_tz.localize(datetime.strptime(date, VALID_DATE_FMT))
             loc_dt += timedelta(hours=int(hhmm[:2]), minutes=int(hhmm[2:]))
-            utc_dt = loc_dt.astimezone(pytz.utc)
-            return utc_dt.strftime(VALID_DATETIME_FMT)
-        return CANCELLED_FLIGHT_TIME_STR
+
+            dst_offset: Optional[timedelta] = loc_dt.dst()
+            utc_offset: Optional[timedelta] = loc_dt.utcoffset()
+
+            if not isinstance(utc_offset, timedelta) or not isinstance(
+                dst_offset, timedelta
+            ):
+                raise ValueError()
+
+            utc_dt = loc_dt.astimezone(pytz.utc) + dst_offset
+
+            # https://docs.python.org/3/library/datetime.html#datetime.tzinfo.utcoffset
+            # Returning standard offset required sum of utc offset and dst offset
+            return (
+                utc_dt.strftime(VALID_DATETIME_FMT),
+                utc_offset.total_seconds() - dst_offset.total_seconds(),
+            )
+        return CANCELLED_FLIGHT_TIME_STR, 0.0
     except (ValueError, pytz.UnknownTimeZoneError) as err:
         raise err
+
+
+# TODO add_24h_if_before  # pylint: disable=fixme
 
 
 class UTCConvert(beam.PTransform):
