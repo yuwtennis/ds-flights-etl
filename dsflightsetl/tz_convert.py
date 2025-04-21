@@ -6,6 +6,7 @@ from typing import Any, Generator, Tuple, Optional
 import pytz
 import apache_beam as beam
 
+from dsflightsetl import LOGGER
 from dsflightsetl.airport import AirportCsvPolicies, AirportLocation
 from dsflightsetl.flight import Flight
 
@@ -46,6 +47,11 @@ def tz_correct(
             )
 
         flight_tmp["arr_airport_tzoffset"] = arr_tz
+
+        for field in ["wheels_off", "crs_arr_time", "arr_time", "wheels_on"]:
+            flight_tmp[field] = add_24h_if_before(
+                flight_tmp["arr_time"], flight_tmp["dep_time"]
+            )
 
         yield Flight(**flight_tmp)
     except KeyError:
@@ -99,7 +105,26 @@ def as_utc_with_standard_time_offset(
         raise err
 
 
-# TODO add_24h_if_before  # pylint: disable=fixme
+def add_24h_if_before(arr_time: str, dep_time: str) -> str:
+    """
+    Date hack. Compensate the arrival time by adding 24 hrs
+    since fl date is based on departure airport.
+
+    :param arr_time:
+    :param dep_time:
+    :return:
+    """
+    if arr_time < dep_time:
+        adt = datetime.strptime(arr_time, VALID_DATETIME_FMT)
+        adt += timedelta(hours=24)
+        return adt.strftime(VALID_DATETIME_FMT)
+
+    LOGGER.info(
+        "Arrival time is not before departure time.  arr_time: %s, dep_time: %s",
+        arr_time,
+        dep_time,
+    )
+    return arr_time
 
 
 class UTCConvert(beam.PTransform):

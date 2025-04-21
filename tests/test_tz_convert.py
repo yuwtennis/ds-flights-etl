@@ -12,6 +12,7 @@ from dsflightsetl.tz_convert import (
     UTCConvert,
     as_utc_with_standard_time_offset,
     tz_correct,
+    add_24h_if_before,
 )
 
 
@@ -108,3 +109,10 @@ def test_tz_correct(airport_location_samples, flight_sample):
     assert actual[0].dest_airport_seq_id == expect_dest_airport_seq_id
     assert actual[0].arr_time == expect_arr_time
     assert actual[0].arr_airport_tzoffset == expect_arr_tz
+
+
+def test_add_24hrs_if_arr_before_dep():
+    """Test dep and arr time adjustment"""
+    expect = "2015-01-02 09:00:00"
+
+    assert add_24h_if_before("2015-01-01 09:00:00", "2015-01-02 00:00:00") == expect
