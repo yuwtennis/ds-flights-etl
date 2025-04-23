@@ -12,7 +12,7 @@ make build
 
 ```shell
 export ALL_FLIGHTS_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/tzcorr/all_flights.txt"
-export AIRPORT_CSV_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/bts/airport.csv"
+export AIRPORT_CSV_PATH="gs://$(gcloud config get core/project)-cf-staging/bts/airport.csv"
 export IMAGE_URL="dsflightsetl:$(git rev-parse HEAD)"
 poetry run python3 __main__.py \
 --runner=PortableRunner \

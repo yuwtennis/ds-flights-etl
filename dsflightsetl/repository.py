@@ -39,4 +39,4 @@ class ReadSamples(beam.PTransform):
         """
         query = f"SELECT * FROM {self._table_name} WHERE rand() < 0.001"
 
-        return pcoll | beam.io.ReadFromBigQuery(table=self._table_name, query=query)
+        return pcoll | beam.io.ReadFromBigQuery(query=query)

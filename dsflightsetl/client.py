@@ -53,17 +53,20 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
         # To gcs
         _ = (
             flights
-            | beam.Map(lambda flight: flight.model_dump_json())
-            | beam.io.WriteToText(file_path_prefix=settings.all_flights_path)
+            | "Serialize Flight into json string"
+            >> beam.Map(lambda flight: flight.model_dump_json())
+            | "Write out to gcs"
+            >> beam.io.WriteToText(file_path_prefix=settings.all_flights_path)
         )
 
         # To BQ
         _ = (
             flights
-            | beam.Map(lambda flight: flight.model_dump())
-            | "To BQ"
+            | "Serialize into dict of Flight model"
+            >> beam.Map(lambda flight: flight.model_dump())
+            | "Write out to tz corr table"
             >> WriteFlights(
-                f"{settings.bq_dataset_name}.{settings.bq_tzcorr_table_name}"
+                f"{settings.bq_dataset_name}.{settings.bq_tz_corr_table_name}"
             )
         )
 
@@ -72,7 +75,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             flights
             | "As event" >> beam.Map(get_next_event)
             | "Serialize" >> beam.Map(lambda event: event.serialize())
-            | "To BQ"
+            | "Write out to simevents table"
             >> WriteFlights(
                 f"{settings.bq_dataset_name}.{settings.bq_simevents_table_name}"
             )
