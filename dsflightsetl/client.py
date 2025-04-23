@@ -5,11 +5,10 @@ from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
 
 from dsflightsetl.airport import UsAirports, AirportLocation
 from dsflightsetl.args import parse_args
-from dsflightsetl.flight import ValidFlights
+from dsflightsetl.flight import ValidFlights, get_next_event
+from dsflightsetl.repository import WriteFlights, ReadSamples
+from dsflightsetl.setttings import Settings
 from dsflightsetl.tz_convert import UTCConvert
-
-AIRPORT_CSV_PATH = "gs://dsongcp-452504-cf-staging/bts/airport_minimal.csv"
-FLIGHT_SAMPLES = "gs://dsongcp-452504-cf-staging/flights/ch4/flight_sample_mini.json"
 
 
 def run(argv: list[str], save_main_sessions: bool = True) -> None:
@@ -23,10 +22,12 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     options: PipelineOptions = PipelineOptions(pipeline_args)
     options.view_as(SetupOptions).save_main_session = save_main_sessions
 
+    settings = Settings()
+
     with beam.Pipeline(options=options) as pipeline:
         airports = (
             pipeline
-            | beam.io.ReadFromText(AIRPORT_CSV_PATH)
+            | beam.io.ReadFromText(settings.airport_csv_path)
             | "Only Us airports" >> UsAirports()
             | "To Airport location entities"
             >> beam.Map(lambda line: AirportLocation.from_airport_csv(line))
@@ -39,15 +40,41 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             )
         )
 
-        _ = (
+        flights = (
             pipeline
-            | "Load flight samples" >> beam.io.ReadFromText(FLIGHT_SAMPLES)
-            | "Filter out invalid element" >> ValidFlights()
+            | "Load flight samples"
+            >> ReadSamples(
+                f"{settings.bq_dataset_name}.{settings.bq_flights_table_name}"
+            )
+            | "Filter out invalid element" >> ValidFlights()  # TODO Remove cleansing
             | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
-            | "Print out"
-            >> beam.io.WriteToText(
-                file_path_prefix="gs://dsongcp-452504-cf-staging/tmp/converted_events",
-                file_name_suffix="csv",
+        )
+
+        # To gcs
+        _ = (
+            flights
+            | beam.Map(lambda flight: flight.model_dump_json())
+            | beam.io.WriteToText(file_path_prefix=settings.all_flights_path)
+        )
+
+        # To BQ
+        _ = (
+            flights
+            | beam.Map(lambda flight: flight.model_dump())
+            | "To BQ"
+            >> WriteFlights(
+                f"{settings.bq_dataset_name}.{settings.bq_tzcorr_table_name}"
+            )
+        )
+
+        # To BQ with simeevents
+        _ = (
+            flights
+            | "As event" >> beam.Map(get_next_event)
+            | "Serialize" >> beam.Map(lambda event: event.serialize())
+            | "To BQ"
+            >> WriteFlights(
+                f"{settings.bq_dataset_name}.{settings.bq_simevents_table_name}"
             )
         )
     pipeline.run()

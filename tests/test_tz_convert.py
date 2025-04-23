@@ -53,10 +53,6 @@ def test_tz_convert_flight_samples(airport_location_samples, flight_samples):
                 | "Load flight samples" >> beam.io.ReadFromText(flight_samples)
                 | "Valid flights only" >> ValidFlights()
                 | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
-                | "Extract"
-                >> beam.Map(
-                    lambda flight: (flight.dep_time, flight.dep_airport_tzoffset)
-                )
             ),
             equal_to(
                 [
@@ -65,7 +61,9 @@ def test_tz_convert_flight_samples(airport_location_samples, flight_samples):
                     ("2015-11-16 00:42:00", -21600.0),
                     ("2015-05-18 12:59:00", -21600.0),
                     ("2015-01-26 13:13:00", -25200.0),
-                ]
+                ],
+                lambda expected, actual: expected
+                == (actual.dep_time, actual.dep_airport_tzoffset),
             ),
         )
 

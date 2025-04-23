@@ -50,7 +50,7 @@ def tz_correct(
 
         for field in ["wheels_off", "crs_arr_time", "arr_time", "wheels_on"]:
             flight_tmp[field] = add_24h_if_before(
-                flight_tmp["arr_time"], flight_tmp["dep_time"]
+                flight_tmp[field], flight_tmp["dep_time"]
             )
 
         yield Flight(**flight_tmp)

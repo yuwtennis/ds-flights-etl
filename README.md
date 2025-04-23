@@ -11,7 +11,9 @@ make build
 ### Using docker
 
 ```shell
-IMAGE_URL="dsflightsetl:$(git rev-parse HEAD)"
+export ALL_FLIGHTS_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/tzcorr/all_flights.txt"
+export AIRPORT_CSV_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/bts/airport.csv"
+export IMAGE_URL="dsflightsetl:$(git rev-parse HEAD)"
 poetry run python3 __main__.py \
 --runner=PortableRunner \
 --job_endpoint=embed \
