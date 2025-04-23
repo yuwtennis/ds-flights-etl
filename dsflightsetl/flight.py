@@ -73,7 +73,7 @@ class Event(BaseModel, metaclass=abc.ABCMeta):
         data = self.flight.model_dump(include=set(fields))
         data.update(self.model_dump(include={"event_type", "event_time"}))
 
-        return {key.upper(): value for key, value in data.items()}
+        return data
 
 
 class Departed(Event):
