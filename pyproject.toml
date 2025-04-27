@@ -1,0 +1,37 @@
+[project]
+name = "dsflightsetl"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "ywatanabe",email = "yu.w.tennis@gmail.com"}
+]
+readme = "README.md"
+requires-python = "~=3.11.9"
+dependencies = [
+    "apache-beam[gcp]~=2.64.0",
+    "timezonefinder~=6.5.9",
+    "pytz~=2025.2",
+    "pydantic~=2.11",
+    "pydantic_settings~=2.9"
+]
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pylint = "~2.15"
+pytest = "~8.2.0"
+mypy = "~1.10.0"
+pre-commit = "~4.1.0"
+types-pytz = "~2025.2"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.autopep8]
+in-place = true
+max_line_length = 120
