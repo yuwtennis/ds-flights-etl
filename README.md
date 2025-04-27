@@ -38,20 +38,30 @@ poetry run python3 __main__.py \
 
 ### Running in the cloud
 
+Build dependencies for python.
+
 ```shell
-export REGION=asia-northeast1
-export BQ_STAGING_LOCATION="gs://$(gcloud config get core/project)-cf-staging/flights/staging/"
-export BQ_TEMP_LOCATION="gs://$(gcloud config get core/project)-cf-staging/flights/temp/"
-export ALL_FLIGHTS_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/tzcorr/all_flights.txt"
-export AIRPORT_CSV_PATH="gs://$(gcloud config get core/project)-cf-staging/bts/airport.csv"
+make package
+```
+
+Fire pipeline.
+
+```shell
+export REGION=asia-east1
+export PROJECT=$(gcloud config get core/project)
+export BQ_STAGING_LOCATION="gs://${PROJECT}-cf-staging/flights/staging/"
+export BQ_TEMP_LOCATION="gs://${PROJECT}-cf-staging/flights/temp/"
+export ALL_FLIGHTS_PATH="gs://${PROJECT}-cf-staging/flights/tzcorr/all_flights.txt"
+export AIRPORT_CSV_PATH="gs://${PROJECT}-cf-staging/bts/airport.csv"
 export EXTRA_PACKAGE=dist/dsflightsetl-$(poetry version -s)-py3-none-any.whl
 poetry run python3 __main__.py \
 --runner=DataflowRunner \
+--job_name=timecorr \
 --region=$REGION \
---project=$(gcloud config get core/project) \
+--project=$PROJECT \
 --staging_location=$BQ_STAGING_LOCATION \
 --temp_location=$BQ_TEMP_LOCATION \
 --extra_package $EXTRA_PACKAGE \
---max_num_workers=8 \
+--max_num_workers=3 \
 --service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com
 ```

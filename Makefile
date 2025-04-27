@@ -12,3 +12,6 @@ test:
 	poetry run pylint dsflightsetl/
 	poetry run mypy dsflightsetl/
 	poetry run pytest -s tests/
+
+package:
+	poetry build --clean
