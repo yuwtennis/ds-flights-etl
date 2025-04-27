@@ -92,4 +92,3 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             | "Serialize" >> beam.Map(lambda event: event.serialize())
             | "Write out to simevents table" >> WriteFlights(flight_simevents_table)
         )
-        pipeline.run()
