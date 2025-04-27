@@ -7,7 +7,7 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 
 from dsflightsetl.airport import AirportLocation
-from dsflightsetl.flight import ValidFlights, Flight
+from dsflightsetl.flight import Flight
 from dsflightsetl.tz_convert import (
     UTCConvert,
     as_utc_with_standard_time_offset,
@@ -51,7 +51,7 @@ def test_tz_convert_flight_samples(airport_location_samples, flight_samples):
             (
                 pipeline
                 | "Load flight samples" >> beam.io.ReadFromText(flight_samples)
-                | "Valid flights only" >> ValidFlights()
+                | "As flights" >> beam.Map(Flight.from_csv)
                 | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
             ),
             equal_to(
@@ -84,7 +84,7 @@ def test_as_utc():
 
 def test_tz_correct(airport_location_samples, flight_sample):
     """Test tz convert"""
-    flight: Flight = Flight.of(flight_sample)
+    flight: Flight = Flight.from_csv(flight_sample)
     airports = []
     expect_origin_airport_seq_id = 1013603
     expect_dep_time = "2015-03-07 20:33:00"

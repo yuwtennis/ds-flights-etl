@@ -3,12 +3,15 @@
 import abc
 import json
 from abc import abstractmethod
+from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel
-import apache_beam as beam
 from dsflightsetl import LOGGER
+
+VALID_DATE_FMT = "%Y-%m-%d"
+VALID_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
 class Flight(BaseModel):
@@ -24,20 +27,20 @@ class Flight(BaseModel):
     arr_airport_tzoffset: Optional[float] = None
     crs_dep_time: str
     dep_time: str
-    dep_delay: int
-    taxi_out: int
+    dep_delay: Optional[int] = None
+    taxi_out: Optional[int] = None
     wheels_off: str
     wheels_on: str
-    taxi_in: int
+    taxi_in: Optional[int] = None
     crs_arr_time: str
     arr_time: str
-    arr_delay: int
+    arr_delay: Optional[int] = None
     cancelled: bool
     diverted: bool
     distance: float
 
     @classmethod
-    def of(cls, json_str: str) -> "Flight":  # pylint: disable=invalid-name
+    def from_csv(cls, json_str: str) -> "Flight":  # pylint: disable=invalid-name
         """
         Convert Json string to Flight entity
 
@@ -46,6 +49,16 @@ class Flight(BaseModel):
         """
         LOGGER.debug("flight: %s", json_str)
         return Flight(**normalize_dict_keys(json.loads(json_str)))
+
+    @classmethod
+    def from_row_dict(cls, data: dict[str, Any]) -> "Flight":
+        """
+        Convert bigquery row dictionary to Flight entity
+
+        :param data:
+        :return:
+        """
+        return Flight(**normalize_dict_keys(data))
 
 
 class EventType(Enum):
@@ -71,7 +84,8 @@ class Event(BaseModel, metaclass=abc.ABCMeta):
         """Serialize in to bq schema format"""
 
         data = self.flight.model_dump(include=set(fields))
-        data.update(self.model_dump(include={"event_type", "event_time"}))
+        data["event_type"] = self.event_type.value
+        data["event_time"] = self.event_time
 
         return data
 
@@ -89,6 +103,7 @@ class Departed(Event):
         "dest",
         "arr_airport_tzoffset",
         "crs_dep_time",
+        "dep_time",
         "dep_delay",
         "crs_arr_time",
         "cancelled",
@@ -146,54 +161,31 @@ def get_next_event(flight: Flight) -> Any:
     :param flight:
     :return:
     """
-    if len(flight.dep_time) > 0:
+    if FlightPolicy.is_valid_datetime(flight.dep_time, VALID_DATETIME_FMT):
         yield Departed(
             event_type=EventType.DEPARTED, event_time=flight.dep_time, flight=flight
         )
 
-    if len(flight.arr_time) > 0:
+    if FlightPolicy.is_valid_datetime(flight.arr_time, VALID_DATETIME_FMT):
         yield Arrived(
             event_type=EventType.ARRIVED, event_time=flight.arr_time, flight=flight
         )
 
-    if len(flight.wheels_off) > 0:
+    if FlightPolicy.is_valid_datetime(flight.wheels_off, VALID_DATETIME_FMT):
         yield Wheelsoff(
             event_type=EventType.WHEELSOFF, event_time=flight.wheels_off, flight=flight
         )
 
 
 class FlightPolicy:
-    """Policies for Flight entity"""
+    """Policies"""
 
     @staticmethod
-    def will_flight_depart(json_str: str):
-        """
+    def is_valid_datetime(str_datetime: str, fmt: str):
+        """Test if input is a valid datetime string"""
+        try:
+            datetime.strptime(str_datetime, fmt)
+        except ValueError:
+            return False
 
-        :param json_str:
-        :return:
-        """
-        return json.loads(json_str)["CANCELLED"] is False
-
-    @staticmethod
-    def has_flight_arrived(json_str: str):
-        """
-
-        :param json_str:
-        :return:
-        """
-        return json.loads(json_str)["DIVERTED"] is False
-
-
-class ValidFlights(beam.PTransform):
-    """Valid flights"""
-
-    def expand(self, pcoll: Any) -> Any:  # pylint: disable=arguments-renamed
-        """
-
-        :param pcoll:
-        :return:
-        """
-        return pcoll | beam.Filter(
-            lambda line: FlightPolicy.will_flight_depart(line)
-            and FlightPolicy.has_flight_arrived(line)
-        )
+        return True

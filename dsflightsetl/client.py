@@ -1,12 +1,17 @@
 """Module orchestrating all client side tasks"""
 
 import apache_beam as beam
-from apache_beam.options.pipeline_options import PipelineOptions, SetupOptions
+from apache_beam.options.pipeline_options import (
+    PipelineOptions,
+    SetupOptions,
+    GoogleCloudOptions,
+)
+from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 
 from dsflightsetl.airport import UsAirports, AirportLocation
 from dsflightsetl.args import parse_args
-from dsflightsetl.flight import ValidFlights, get_next_event
-from dsflightsetl.repository import WriteFlights, ReadSamples
+from dsflightsetl.flight import get_next_event
+from dsflightsetl.repository import WriteFlights, ReadFlights
 from dsflightsetl.setttings import Settings
 from dsflightsetl.tz_convert import UTCConvert
 
@@ -21,10 +26,27 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     _, pipeline_args = parse_args(argv)  # type: ignore[attr-defined]
     options: PipelineOptions = PipelineOptions(pipeline_args)
     options.view_as(SetupOptions).save_main_session = save_main_sessions
+    project_id = options.view_as(GoogleCloudOptions).project
 
     settings = Settings()
+    flights_table = TableReference(
+        projectId=project_id,
+        datasetId=settings.bq_dataset_name,
+        tableId=settings.bq_flights_table_name,
+    )
+    flight_tz_corr_table = TableReference(
+        projectId=project_id,
+        datasetId=settings.bq_dataset_name,
+        tableId=settings.bq_tzcorr_table_name,
+    )
+    flight_simevents_table = TableReference(
+        projectId=project_id,
+        datasetId=settings.bq_dataset_name,
+        tableId=settings.bq_simevents_table_name,
+    )
 
     with beam.Pipeline(options=options) as pipeline:
+
         airports = (
             pipeline
             | beam.io.ReadFromText(settings.airport_csv_path)
@@ -42,11 +64,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
 
         flights = (
             pipeline
-            | "Load flight samples"
-            >> ReadSamples(
-                f"{settings.bq_dataset_name}.{settings.bq_flights_table_name}"
-            )
-            | "Filter out invalid element" >> ValidFlights()  # TODO Remove cleansing
+            | "Load flight samples as Json String" >> ReadFlights(flights_table)
             | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
         )
 
@@ -59,25 +77,19 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             >> beam.io.WriteToText(file_path_prefix=settings.all_flights_path)
         )
 
-        # To BQ
+        # To BQ as tz corrected events
         _ = (
             flights
             | "Serialize into dict of Flight model"
             >> beam.Map(lambda flight: flight.model_dump())
-            | "Write out to tz corr table"
-            >> WriteFlights(
-                f"{settings.bq_dataset_name}.{settings.bq_tz_corr_table_name}"
-            )
+            | "Write out to tzcorr table" >> WriteFlights(flight_tz_corr_table)
         )
 
-        # To BQ with simeevents
+        # To BQ as simeevents with event types and time
         _ = (
             flights
-            | "As event" >> beam.Map(get_next_event)
+            | "As event" >> beam.FlatMap(get_next_event)
             | "Serialize" >> beam.Map(lambda event: event.serialize())
-            | "Write out to simevents table"
-            >> WriteFlights(
-                f"{settings.bq_dataset_name}.{settings.bq_simevents_table_name}"
-            )
+            | "Write out to simevents table" >> WriteFlights(flight_simevents_table)
         )
-    pipeline.run()
+        pipeline.run()

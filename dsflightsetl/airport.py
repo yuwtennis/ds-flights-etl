@@ -151,7 +151,7 @@ class AirportCsvPolicies:
         :param hhmm:
         :return:
         """
-        return len(hhmm) > 0 and int(hhmm) < 2400
+        return hhmm is not None and len(hhmm) == 4 and hhmm.isdigit()
 
 
 class UsAirports(beam.PTransform):

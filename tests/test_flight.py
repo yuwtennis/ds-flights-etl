@@ -11,7 +11,7 @@ from dsflightsetl.tz_convert import UTCConvert
 from tests.test_tz_convert import load_airport_csv
 
 
-def test_get_next_event(flight_sample, airport_location_samples):
+def test_get_next_event(flight_entity, airport_location_samples):
     """Test get_next_event"""
     with TestPipeline() as pipeline:
         airports: Any = (
@@ -23,7 +23,7 @@ def test_get_next_event(flight_sample, airport_location_samples):
         assert_that(
             (
                 pipeline
-                | beam.Create([flight_sample])
+                | beam.Create([flight_entity])
                 | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
                 | "Next Event" >> beam.FlatMap(get_next_event)
             ),
@@ -34,7 +34,7 @@ def test_get_next_event(flight_sample, airport_location_samples):
         )
 
 
-def test_event_serialize(flight_sample, airport_location_samples):
+def test_event_serialize(flight_entity, airport_location_samples):
     """Test serialize"""
     with TestPipeline() as pipeline:
         airports: Any = (
@@ -46,7 +46,7 @@ def test_event_serialize(flight_sample, airport_location_samples):
         assert_that(
             (
                 pipeline
-                | beam.Create([flight_sample])
+                | beam.Create([flight_entity])
                 | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
                 | "Next Event" >> beam.FlatMap(get_next_event)
                 | "Serialize" >> beam.Map(lambda event: event.serialize())

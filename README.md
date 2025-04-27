@@ -8,15 +8,50 @@ make build
 
 ## Run
 
-### Using docker
+### Running in local environment with docker
+
+Open up the terminal and run the [harness container](https://beam.apache.org/documentation/runtime/sdk-harness-config/).
+Pipeline will be ran in a separate environment where the [google application credential](https://cloud.google.com/docs/authentication/application-default-credentials) is available to client libraries.
 
 ```shell
+export GOOGLE_APPLICATION_CRED_DIR=.config
+export IMAGE_URL=$(git rev-parse HEAD)
+docker run -v ~/${GOOGLE_APPLICATION_CRED_DIR}/:/root/${GOOGLE_APPLICATION_CRED_DIR}/ -p=50000:50000 dsflightsetl:$IMAGE_URL --worker_pool
+```
+
+In the separate terminal run below.
+
+```shell
+export BQ_STAGING_LOCATION="gs://$(gcloud config get core/project)-cf-staging/flights/staging/"
+export BQ_TEMP_LOCATION="gs://$(gcloud config get core/project)-cf-staging/flights/temp/"
 export ALL_FLIGHTS_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/tzcorr/all_flights.txt"
 export AIRPORT_CSV_PATH="gs://$(gcloud config get core/project)-cf-staging/bts/airport.csv"
-export IMAGE_URL="dsflightsetl:$(git rev-parse HEAD)"
 poetry run python3 __main__.py \
 --runner=PortableRunner \
 --job_endpoint=embed \
---environment_type="DOCKER" \
---environment_config="${IMAGE_URL}"
+--environment_type="EXTERNAL" \
+--environment_config="localhost:50000"\
+--project=$(gcloud config get core/project) \
+--staging-location=$BQ_STAGING_LOCATION \
+--temp_location=$BQ_TEMP_LOCATION
+```
+
+### Running in the cloud
+
+```shell
+export REGION=asia-northeast1
+export BQ_STAGING_LOCATION="gs://$(gcloud config get core/project)-cf-staging/flights/staging/"
+export BQ_TEMP_LOCATION="gs://$(gcloud config get core/project)-cf-staging/flights/temp/"
+export ALL_FLIGHTS_PATH="gs://$(gcloud config get core/project)-cf-staging/flights/tzcorr/all_flights.txt"
+export AIRPORT_CSV_PATH="gs://$(gcloud config get core/project)-cf-staging/bts/airport.csv"
+export EXTRA_PACKAGE=dist/dsflightsetl-$(poetry version -s)-py3-none-any.whl
+poetry run python3 __main__.py \
+--runner=DataflowRunner \
+--region=$REGION \
+--project=$(gcloud config get core/project) \
+--staging_location=$BQ_STAGING_LOCATION \
+--temp_location=$BQ_TEMP_LOCATION \
+--extra_package $EXTRA_PACKAGE \
+--max_num_workers=8 \
+--service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com
 ```

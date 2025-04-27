@@ -8,12 +8,10 @@ import apache_beam as beam
 
 from dsflightsetl import LOGGER
 from dsflightsetl.airport import AirportCsvPolicies, AirportLocation
-from dsflightsetl.flight import Flight
+from dsflightsetl.flight import Flight, FlightPolicy, VALID_DATETIME_FMT, VALID_DATE_FMT
 
-
-VALID_DATE_FMT = "%Y-%m-%d"
-VALID_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 CANCELLED_FLIGHT_TIME_STR = ""
+CANCELLED_FLIGHT_TZ_OFFSET = 0.0
 
 
 def tz_correct(
@@ -59,7 +57,7 @@ def tz_correct(
 
 
 def as_utc_with_standard_time_offset(
-    date: str, hhmm: str, tzone: Optional[str]
+    flight_date: str, hhmm: str, tzone: Optional[str]
 ) -> Tuple[str, float]:
     """
     Convert date time string into utc with standard time offsets.
@@ -69,7 +67,7 @@ def as_utc_with_standard_time_offset(
     >The is_dst parameter is ignored for most timestamps.
     >It is only used during DST transition ambiguous periods to resolve that ambiguity.
 
-    :param date:
+    :param flight_date:
     :param hhmm:
     :param tzone:
     :return:
@@ -81,7 +79,7 @@ def as_utc_with_standard_time_offset(
 
             # Tip: localize will convert into midnight
             # then add hours from that offset will be a safe way
-            loc_dt = loc_tz.localize(datetime.strptime(date, VALID_DATE_FMT))
+            loc_dt = loc_tz.localize(datetime.strptime(flight_date, VALID_DATE_FMT))
             loc_dt += timedelta(hours=int(hhmm[:2]), minutes=int(hhmm[2:]))
 
             dst_offset: Optional[timedelta] = loc_dt.dst()
@@ -100,7 +98,7 @@ def as_utc_with_standard_time_offset(
                 utc_dt.strftime(VALID_DATETIME_FMT),
                 utc_offset.total_seconds() - dst_offset.total_seconds(),
             )
-        return CANCELLED_FLIGHT_TIME_STR, 0.0
+        return CANCELLED_FLIGHT_TIME_STR, CANCELLED_FLIGHT_TZ_OFFSET
     except (ValueError, pytz.UnknownTimeZoneError) as err:
         raise err
 
@@ -114,12 +112,16 @@ def add_24h_if_before(arr_time: str, dep_time: str) -> str:
     :param dep_time:
     :return:
     """
-    if arr_time < dep_time:
+    if (
+        FlightPolicy.is_valid_datetime(arr_time, VALID_DATETIME_FMT)
+        and FlightPolicy.is_valid_datetime(dep_time, VALID_DATETIME_FMT)
+        and arr_time < dep_time
+    ):
         adt = datetime.strptime(arr_time, VALID_DATETIME_FMT)
         adt += timedelta(hours=24)
         return adt.strftime(VALID_DATETIME_FMT)
 
-    LOGGER.info(
+    LOGGER.debug(
         "Arrival time is not before departure time.  arr_time: %s, dep_time: %s",
         arr_time,
         dep_time,
@@ -145,9 +147,6 @@ class UTCConvert(beam.PTransform):
         :param p_col:
         :return:
         """
-        return (
-            pcoll
-            | "As Flight entity" >> beam.Map(Flight.of)
-            | "Convert origin and dest timezone into utc"
-            >> beam.FlatMap(tz_correct, self._airports)
+        return pcoll | "Convert origin and dest timezone into utc" >> beam.FlatMap(
+            tz_correct, self._airports
         )
