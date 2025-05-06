@@ -65,3 +65,14 @@ poetry run python3 __main__.py \
 --max_num_workers=3 \
 --service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com
 ```
+
+### Running the simulator
+
+For example.
+
+```shell
+poetry run python3 scripts/simulator.py \
+  --start_time "2015-05-01 00:00:00 UTC" \
+  --end_time "2015-05-04 00:00:00 UTC" \
+  --project_id dsongcp-452504
+```
