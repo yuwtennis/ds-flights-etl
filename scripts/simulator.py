@@ -190,17 +190,22 @@ def main(argv: sys.argv):  # pylint: disable=unused-argument
     rows = extract(
         bq_client, args.start_time, args.end_time, args.dataset_id, args.table_id
     )
-    notify(
-        publisher,
-        rows,
-        [
-            TopicResource(project_id=args.project_id, event_type=evt.value)
-            for evt in [EventType.DEPARTED, EventType.ARRIVED, EventType.WHEELSOFF]
-        ],
-        as_datetime(args.start_time),
-        prog_start_time,
-        60,
-    )
+
+    try:
+        notify(
+            publisher,
+            rows,
+            [
+                TopicResource(project_id=args.project_id, event_type=evt.value)
+                for evt in [EventType.DEPARTED, EventType.ARRIVED, EventType.WHEELSOFF]
+            ],
+            as_datetime(args.start_time),
+            prog_start_time,
+            60,
+        )
+    except KeyboardInterrupt:
+        # TODO Process keyboard interrupt
+        logging.info("Do graceful shutdown...")
 
 
 if __name__ == "__main__":
