@@ -1,6 +1,6 @@
 """ Top level main module """
 import sys
-from dsflightsetl.client import run
+from dsflightsdpr.client import run
 
 
 def main():

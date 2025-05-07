@@ -6,9 +6,9 @@ from typing import Any, Generator, Tuple, Optional
 import pytz
 import apache_beam as beam
 
-from dsflightsetl import LOGGER
-from dsflightsetl.airport import AirportCsvPolicies, AirportLocation
-from dsflightsetl.flight import Flight, FlightPolicy, VALID_DATETIME_FMT, VALID_DATE_FMT
+from dsflightsdpr import LOGGER
+from dsflightsdpr.airport import AirportCsvPolicies, AirportLocation
+from dsflightsdpr.flight import Flight, FlightPolicy, VALID_DATETIME_FMT, VALID_DATE_FMT
 
 CANCELLED_FLIGHT_TIME_STR = ""
 CANCELLED_FLIGHT_TZ_OFFSET = 0.0
