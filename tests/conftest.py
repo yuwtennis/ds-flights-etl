@@ -2,7 +2,7 @@
 
 import pytest
 
-from dsflightsetl.flight import Flight
+from dsflightsdpr.flight import Flight
 
 
 @pytest.fixture

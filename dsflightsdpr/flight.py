@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel
-from dsflightsetl import LOGGER
+from dsflightsdpr import LOGGER
 
 VALID_DATE_FMT = "%Y-%m-%d"
 VALID_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"

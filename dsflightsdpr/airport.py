@@ -8,7 +8,7 @@ import apache_beam as beam
 import timezonefinder
 from pydantic import BaseModel
 
-from dsflightsetl import LOGGER
+from dsflightsdpr import LOGGER
 
 
 class Airport(Enum):
