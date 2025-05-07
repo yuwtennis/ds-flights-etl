@@ -8,11 +8,11 @@ from apache_beam.options.pipeline_options import (
 )
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 
-from dsflightsdpr.airport import UsAirports, AirportLocation
-from dsflightsdpr.args import parse_args
-from dsflightsdpr.processor import Batch, Streaming
-from dsflightsdpr.message import TopicResource
-from dsflightsdpr.setttings import Settings
+from dsflightsetl.airport import UsAirports, AirportLocation
+from dsflightsetl.args import parse_args
+from dsflightsetl.processor import Batch, Streaming
+from dsflightsetl.message import TopicResource
+from dsflightsetl.setttings import Settings
 
 
 def run(argv: list[str], save_main_sessions: bool = True) -> None:

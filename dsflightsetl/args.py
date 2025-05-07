@@ -1,4 +1,4 @@
-""" Parses arguments from commandline """
+"""Parses arguments from commandline"""
 
 import argparse
 from argparse import Namespace

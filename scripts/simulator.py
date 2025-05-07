@@ -12,8 +12,8 @@ from typing import Generator
 from google.cloud import pubsub_v1, bigquery
 from google.cloud.pubsub_v1.publisher.futures import Future
 
-from dsflightsdpr.flight import EventType, VALID_DATETIME_FMT
-from dsflightsdpr.message import Message, TopicResource
+from dsflightsetl.flight import EventType, VALID_DATETIME_FMT
+from dsflightsetl.message import Message, TopicResource
 
 
 def as_datetime(date_str: str):

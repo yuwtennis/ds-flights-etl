@@ -6,9 +6,9 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 
-from dsflightsdpr.airport import AirportLocation
-from dsflightsdpr.flight import Flight
-from dsflightsdpr.tz_convert import (
+from dsflightsetl.airport import AirportLocation
+from dsflightsetl.flight import Flight
+from dsflightsetl.tz_convert import (
     UTCConvert,
     as_utc_with_standard_time_offset,
     tz_correct,
