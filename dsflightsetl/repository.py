@@ -3,7 +3,7 @@
 from typing import Any
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
-from dsflightsdpr.flight import Flight
+from dsflightsetl.flight import Flight
 
 
 class ReadFlights(beam.PTransform):

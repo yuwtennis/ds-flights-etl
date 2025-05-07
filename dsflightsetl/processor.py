@@ -5,10 +5,10 @@ from typing import Any
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
-from dsflightsdpr.flight import Flight, get_next_event
-from dsflightsdpr.message import TopicResource
-from dsflightsdpr.repository import ReadFlights, WriteFlights
-from dsflightsdpr.tz_convert import UTCConvert
+from dsflightsetl.flight import Flight, get_next_event
+from dsflightsetl.message import TopicResource
+from dsflightsetl.repository import ReadFlights, WriteFlights
+from dsflightsetl.tz_convert import UTCConvert
 
 
 class Processor(metaclass=abc.ABCMeta):
