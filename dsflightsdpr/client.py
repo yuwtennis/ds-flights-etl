@@ -10,10 +10,9 @@ from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 
 from dsflightsdpr.airport import UsAirports, AirportLocation
 from dsflightsdpr.args import parse_args
-from dsflightsdpr.flight import get_next_event
-from dsflightsdpr.repository import WriteFlights, ReadFlights
+from dsflightsdpr.processor import Batch, Streaming
+from dsflightsdpr.message import TopicResource
 from dsflightsdpr.setttings import Settings
-from dsflightsdpr.tz_convert import UTCConvert
 
 
 def run(argv: list[str], save_main_sessions: bool = True) -> None:
@@ -26,24 +25,33 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     _, pipeline_args = parse_args(argv)  # type: ignore[attr-defined]
     options: PipelineOptions = PipelineOptions(pipeline_args)
     options.view_as(SetupOptions).save_main_session = save_main_sessions
-    project_id = options.view_as(GoogleCloudOptions).project
+
+    project_id: str = options.view_as(GoogleCloudOptions).project
+    is_streaming: bool = options.view_as(GoogleCloudOptions).streaming
 
     settings = Settings()
-    flights_table = TableReference(
-        projectId=project_id,
-        datasetId=settings.bq_dataset_name,
-        tableId=settings.bq_flights_table_name,
-    )
-    flight_tz_corr_table = TableReference(
-        projectId=project_id,
-        datasetId=settings.bq_dataset_name,
-        tableId=settings.bq_tzcorr_table_name,
-    )
-    flight_simevents_table = TableReference(
-        projectId=project_id,
-        datasetId=settings.bq_dataset_name,
-        tableId=settings.bq_simevents_table_name,
-    )
+    tbrs = {
+        "flights": TableReference(
+            projectId=project_id,
+            datasetId=settings.bq_dataset_name,
+            tableId=settings.bq_flights_table_name,
+        ),
+        "tz_corr": TableReference(
+            projectId=project_id,
+            datasetId=settings.bq_dataset_name,
+            tableId=settings.bq_tzcorr_table_name,
+        ),
+        "simevents": TableReference(
+            projectId=project_id,
+            datasetId=settings.bq_dataset_name,
+            tableId=settings.bq_simevents_table_name,
+        ),
+        "streaming_events": TableReference(
+            projectId=project_id,
+            datasetId=settings.bq_dataset_name,
+            tableId=settings.bq_streaming_events_table_name,
+        ),
+    }
 
     with beam.Pipeline(options=options) as pipeline:
 
@@ -62,33 +70,17 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             )
         )
 
-        flights = (
-            pipeline
-            | "Load flight samples as Json String" >> ReadFlights(flights_table)
-            | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
-        )
+        if is_streaming:
+            processor = Streaming(
+                [
+                    TopicResource(project_id=project_id, event_type=evt)
+                    for evt in ["departed", "arrived"]
+                ],
+                tbrs,
+            )
+            flights = processor.read(pipeline, airports)
+        else:
+            processor = Batch(tbrs)
+            flights = processor.read(pipeline, airports)
 
-        # To gcs
-        _ = (
-            flights
-            | "Serialize Flight into json string"
-            >> beam.Map(lambda flight: flight.model_dump_json())
-            | "Write out to gcs"
-            >> beam.io.WriteToText(file_path_prefix=settings.all_flights_path)
-        )
-
-        # To BQ as tz corrected events
-        _ = (
-            flights
-            | "Serialize into dict of Flight model"
-            >> beam.Map(lambda flight: flight.model_dump())
-            | "Write out to tzcorr table" >> WriteFlights(flight_tz_corr_table)
-        )
-
-        # To BQ as simeevents with event types and time
-        _ = (
-            flights
-            | "As event" >> beam.FlatMap(get_next_event)
-            | "Serialize" >> beam.Map(lambda event: event.serialize())
-            | "Write out to simevents table" >> WriteFlights(flight_simevents_table)
-        )
+        processor.write(flights, settings.all_flights_path, tbrs)
