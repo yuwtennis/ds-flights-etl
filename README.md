@@ -1,4 +1,6 @@
-# ds-flights-etl
+# ds-flights-dpr
+
+Project executes both batch and streaming processing for flight data
 
 ## Build container
 
