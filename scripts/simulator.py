@@ -13,7 +13,7 @@ from google.cloud import pubsub_v1, bigquery
 from google.cloud.pubsub_v1.publisher.futures import Future
 
 from dsflightsetl.flight import EventType, VALID_DATETIME_FMT
-from dsflightsetl.message import Message, TopicResource
+from dsflightsetl.message import Message, Topic
 
 
 def as_datetime(date_str: str):
@@ -108,7 +108,7 @@ def extract(
 def notify(  # pylint: disable=too-many-arguments
     publisher: pubsub_v1.PublisherClient,
     events: Generator[Message, None, None],
-    topics: list[TopicResource],
+    topics: list[Topic],
     sim_start_time: datetime,
     prog_start_time: datetime,
     speed_factor: int,
@@ -145,7 +145,7 @@ def notify(  # pylint: disable=too-many-arguments
             if to_sleep_secs > 0:
                 logging.info("Sleeping %s seconds", to_sleep_secs)
                 time.sleep(to_sleep_secs)
-        topic_resource: TopicResource = next(
+        topic_resource: Topic = next(
             filter(
                 lambda tr: tr.event_type
                 == event.event_type,  # pylint: disable=cell-var-from-loop
@@ -159,7 +159,7 @@ def notify(  # pylint: disable=too-many-arguments
 
 async def publish(
     publisher: pubsub_v1.PublisherClient,
-    topics: list[TopicResource],
+    topics: list[Topic],
     all_events: dict[str, list[Message]],
 ) -> None:
     """
@@ -196,7 +196,7 @@ def main(argv: sys.argv):  # pylint: disable=unused-argument
             publisher,
             rows,
             [
-                TopicResource(project_id=args.project_id, event_type=evt.value)
+                Topic(project_id=args.project_id, event_type=evt.value)
                 for evt in [EventType.DEPARTED, EventType.ARRIVED, EventType.WHEELSOFF]
             ],
             as_datetime(args.start_time),

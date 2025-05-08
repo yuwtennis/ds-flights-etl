@@ -13,12 +13,24 @@ class Message(BaseModel):
     event_data: str
 
 
-class TopicResource(BaseModel):
-    """Topic Resource"""
+class PubSubResource(BaseModel):
+    """Abstract class for PubSub resources"""
 
     project_id: str
     event_type: str
 
+
+class Topic(PubSubResource):
+    """Topic Resource"""
+
     def __str__(self):
         """Topic resource path as string representation"""
         return f"projects/{self.project_id}/topics/{self.event_type}"
+
+
+class Subscription(PubSubResource):
+    """Subscription Resource"""
+
+    def __str__(self):
+        """Subscription resource path as string representation"""
+        return f"projects/{self.project_id}/subscriptions/{self.event_type}"

@@ -1,12 +1,13 @@
 """Processors"""
 
 import abc
+import json
 from typing import Any
 
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 from dsflightsetl.flight import Flight, get_next_event
-from dsflightsetl.message import TopicResource
+from dsflightsetl.message import Subscription
 from dsflightsetl.repository import ReadFlights, WriteFlights
 from dsflightsetl.tz_convert import UTCConvert
 
@@ -62,7 +63,7 @@ class Batch(Processor):
         _ = (
             flights
             | "Serialize Flight into json string"
-            >> beam.Map(lambda flight: flight.model_dump_json())
+            >> beam.Map(lambda flight: flight.stringify())
             | "Write out to gcs"
             >> beam.io.WriteToText(file_path_prefix=self._all_flights_path)
         )
@@ -71,7 +72,7 @@ class Batch(Processor):
         _ = (
             flights
             | "Serialize into dict of Flight model"
-            >> beam.Map(lambda flight: flight.model_dump())
+            >> beam.Map(lambda flight: flight.serialize())
             | "Write out to tzcorr table"
             >> WriteFlights(
                 self._tbrs["flight_tz_corr"],
@@ -98,9 +99,9 @@ class Streaming(Processor):
     """Streaming"""
 
     def __init__(
-        self, topic_resources: list[TopicResource], tbrs: dict[str, TableReference]
+        self, topic_resources: list[Subscription], tbrs: dict[str, TableReference]
     ):
-        self._topic_resource = topic_resources
+        self._subscription_resource = topic_resources
         self._tbrs = tbrs
 
     def read(self, pipeline: Any) -> Any:
@@ -111,11 +112,13 @@ class Streaming(Processor):
         """
         events = {}
 
-        for topic in self._topic_resource:
-            events[str(topic)] = (
+        for sub in self._subscription_resource:
+            events[str(sub)] = (
                 pipeline
-                | f"read: {str(topic)}" >> beam.io.ReadFromPubSub(topic=str(topic))
-                | f"parse: {str(topic)}" >> beam.Map(lambda s: Flight.from_row_dict(s))
+                | f"read: {sub.event_type}"
+                >> beam.io.ReadFromPubSub(subscription=str(sub))
+                | f"parse: {sub.event_type}"
+                >> beam.Map(lambda s: Flight.from_row_dict(json.loads(s)))
             )
 
         return (resource for path, resource in events.items()) | beam.Flatten()
@@ -127,8 +130,14 @@ class Streaming(Processor):
         :return:
         """
         # To BQ as simeevents with event types and time
-        _ = flights | "Write out to streaming events table" >> WriteFlights(
-            self._tbrs["streaming_events"],
-            beam.io.BigQueryDisposition.WRITE_APPEND,
-            beam.io.BigQueryDisposition.CREATE_NEVER,
+        _ = (
+            flights
+            | "Serialize into dict of Flight model"
+            >> beam.Map(lambda flight: flight.serialize())
+            | "Write out to streaming events table"
+            >> WriteFlights(
+                self._tbrs["streaming_events"],
+                beam.io.BigQueryDisposition.WRITE_APPEND,
+                beam.io.BigQueryDisposition.CREATE_NEVER,
+            )
         )
