@@ -53,9 +53,16 @@ class ReadFlights(beam.PTransform):
 class WriteFlights(beam.PTransform):
     """Writing flights model to bigquery"""
 
-    def __init__(self, table_spec: TableReference):
+    def __init__(
+        self,
+        table_spec: TableReference,
+        write_disposition: str,
+        create_disposition: str,
+    ):
         super().__init__()
         self._table_spec = table_spec
+        self._write_disposition = write_disposition
+        self._create_disposition = create_disposition
 
     def expand(self, pcoll: Any):  # pylint: disable=arguments-renamed
         """
@@ -65,6 +72,6 @@ class WriteFlights(beam.PTransform):
         """
         _ = pcoll | beam.io.WriteToBigQuery(
             table=self._table_spec,
-            write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
-            create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
+            write_disposition=self._write_disposition,
+            create_disposition=self._create_disposition,
         )
