@@ -1,4 +1,6 @@
-# ds-flights-etl
+# ds-flights-dpr
+
+Project executes both batch and streaming processing for flight data
 
 ## Build container
 
@@ -44,7 +46,7 @@ Build dependencies for python.
 make package
 ```
 
-Fire pipeline.
+#### Batch
 
 ```shell
 export REGION=asia-east1
@@ -64,6 +66,27 @@ poetry run python3 __main__.py \
 --extra_package $EXTRA_PACKAGE \
 --max_num_workers=3 \
 --service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com
+```
+
+#### Streaming
+
+```shell
+export REGION=asia-east1
+export PROJECT=$(gcloud config get core/project)
+export BQ_STAGING_LOCATION="gs://${PROJECT}-cf-staging/flights/staging/"
+export BQ_TEMP_LOCATION="gs://${PROJECT}-cf-staging/flights/temp/"
+export EXTRA_PACKAGE=dist/dsflightsetl-$(poetry version -s)-py3-none-any.whl
+poetry run python3 __main__.py \
+--runner=DataflowRunner \
+--job_name=streaming \
+--region=$REGION \
+--project=$PROJECT \
+--staging_location=$BQ_STAGING_LOCATION \
+--temp_location=$BQ_TEMP_LOCATION \
+--extra_package $EXTRA_PACKAGE \
+--max_num_workers=3 \
+--service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com \
+--streaming
 ```
 
 ### Running the simulator
