@@ -15,7 +15,7 @@ class Processor(metaclass=abc.ABCMeta):
     """Interface"""
 
     @abc.abstractmethod
-    def read(self, pipeline: Any, airports: Any):
+    def read(self, pipeline: Any):
         """
 
         :param pipeline:
@@ -23,9 +23,34 @@ class Processor(metaclass=abc.ABCMeta):
         :return:
         """
 
-    def write(
-        self, flights: Any, all_flights_path: str, tbrs: dict[str, TableReference]
-    ) -> None:
+    @abc.abstractmethod
+    def write(self, flights: Any) -> None:
+        """
+
+        :param flights:
+        :return:
+        """
+
+
+class Batch(Processor):
+    """Batch"""
+
+    def __init__(
+        self, tbrs: dict[str, TableReference], airports: Any, all_flights_path: str
+    ):
+        self._tbrs = tbrs
+        self._airports = airports
+        self._all_flights_path = all_flights_path
+
+    def read(self, pipeline: Any) -> Any:
+        """For batch"""
+        return (
+            pipeline
+            | "Load flight samples as Json String" >> ReadFlights(self._tbrs["flights"])
+            | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(self._airports))
+        )
+
+    def write(self, flights: Any):
         """
 
         :param flights:
@@ -33,14 +58,13 @@ class Processor(metaclass=abc.ABCMeta):
         :param tbrs:
         :return:
         """
-
         # To gcs
         _ = (
             flights
             | "Serialize Flight into json string"
             >> beam.Map(lambda flight: flight.model_dump_json())
             | "Write out to gcs"
-            >> beam.io.WriteToText(file_path_prefix=all_flights_path)
+            >> beam.io.WriteToText(file_path_prefix=self._all_flights_path)
         )
 
         # To BQ as tz corrected events
@@ -48,7 +72,12 @@ class Processor(metaclass=abc.ABCMeta):
             flights
             | "Serialize into dict of Flight model"
             >> beam.Map(lambda flight: flight.model_dump())
-            | "Write out to tzcorr table" >> WriteFlights(tbrs["flight_tz_corr"])
+            | "Write out to tzcorr table"
+            >> WriteFlights(
+                self._tbrs["flight_tz_corr"],
+                beam.io.BigQueryDisposition.WRITE_TRUNCATE,
+                beam.io.BigQueryDisposition.CREATE_NEVER,
+            )
         )
 
         # To BQ as simeevents with event types and time
@@ -56,35 +85,13 @@ class Processor(metaclass=abc.ABCMeta):
             flights
             | "As event" >> beam.FlatMap(get_next_event)
             | "Serialize" >> beam.Map(lambda event: event.serialize())
-            | "Write out to simevents table" >> WriteFlights(tbrs["simevents"])
+            | "Write out to simevents table"
+            >> WriteFlights(
+                self._tbrs["simevents"],
+                beam.io.BigQueryDisposition.WRITE_TRUNCATE,
+                beam.io.BigQueryDisposition.CREATE_NEVER,
+            )
         )
-
-
-class Batch(Processor):
-    """Batch"""
-
-    def __init__(self, tbrs: dict[str, TableReference]):
-        self._tbrs = tbrs
-
-    def read(self, pipeline: Any, airports: Any) -> Any:
-        """For batch"""
-        return (
-            pipeline
-            | "Load flight samples as Json String" >> ReadFlights(self._tbrs["flights"])
-            | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(airports))
-        )
-
-    def write(
-        self, flights: Any, all_flights_path: str, tbrs: dict[str, TableReference]
-    ):
-        """
-
-        :param flights:
-        :param all_flights_path:
-        :param tbrs:
-        :return:
-        """
-        super().write(flights, all_flights_path, self._tbrs)
 
 
 class Streaming(Processor):
@@ -96,11 +103,10 @@ class Streaming(Processor):
         self._topic_resource = topic_resources
         self._tbrs = tbrs
 
-    def read(self, pipeline: Any, airports: Any) -> Any:
+    def read(self, pipeline: Any) -> Any:
         """
 
         :param pipeline:
-        :param airports:
         :return:
         """
         events = {}
@@ -114,19 +120,15 @@ class Streaming(Processor):
 
         return (resource for path, resource in events.items()) | beam.Flatten()
 
-    def write(
-        self, flights: Any, all_flights_path: str, tbrs: dict[str, TableReference]
-    ):
+    def write(self, flights: Any):
         """
 
         :param flights:
-        :param all_flights_path:
-        :param tbrs:
         :return:
         """
-        super().write(flights, all_flights_path, tbrs)
-
         # To BQ as simeevents with event types and time
         _ = flights | "Write out to streaming events table" >> WriteFlights(
-            tbrs["streaming_events"]
+            self._tbrs["streaming_events"],
+            beam.io.BigQueryDisposition.WRITE_APPEND,
+            beam.io.BigQueryDisposition.CREATE_NEVER,
         )

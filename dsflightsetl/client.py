@@ -5,6 +5,7 @@ from apache_beam.options.pipeline_options import (
     PipelineOptions,
     SetupOptions,
     GoogleCloudOptions,
+    StandardOptions,
 )
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 
@@ -27,7 +28,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     options.view_as(SetupOptions).save_main_session = save_main_sessions
 
     project_id: str = options.view_as(GoogleCloudOptions).project
-    is_streaming: bool = options.view_as(GoogleCloudOptions).streaming
+    is_streaming: bool = options.view_as(StandardOptions).streaming
 
     settings = Settings()
     tbrs = {
@@ -78,9 +79,9 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
                 ],
                 tbrs,
             )
-            flights = processor.read(pipeline, airports)
+            flights = processor.read(pipeline)
         else:
-            processor = Batch(tbrs)
-            flights = processor.read(pipeline, airports)
+            processor = Batch(tbrs, airports, settings.all_flights_path)
+            flights = processor.read(pipeline)
 
-        processor.write(flights, settings.all_flights_path, tbrs)
+        processor.write(flights)
