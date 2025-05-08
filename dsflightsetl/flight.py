@@ -198,11 +198,13 @@ class FlightPolicy:
     """Policies"""
 
     @staticmethod
-    def is_valid_datetime(str_datetime: str, fmt: str):
+    def is_valid_datetime(str_datetime: Optional[str], fmt: str):
         """Test if input is a valid datetime string"""
         try:
-            datetime.strptime(str_datetime, fmt)
+            if isinstance(str_datetime, str):
+                datetime.strptime(str_datetime, fmt)
+                return True
+
+            raise ValueError()
         except ValueError:
             return False
-
-        return True

@@ -1,5 +1,7 @@
 """Module orchestrating all client side tasks"""
 
+from typing import Optional
+
 import apache_beam as beam
 from apache_beam.options.pipeline_options import (
     PipelineOptions,
@@ -11,7 +13,7 @@ from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 
 from dsflightsetl.airport import UsAirports, AirportLocation
 from dsflightsetl.args import parse_args
-from dsflightsetl.processor import Batch, Streaming
+from dsflightsetl.processor import Batch, Streaming, Processor
 from dsflightsetl.message import Subscription
 from dsflightsetl.setttings import Settings
 
@@ -55,6 +57,8 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     }
 
     with beam.Pipeline(options=options) as pipeline:
+        processor: Optional[Processor] = None
+
         if is_streaming:
             processor = Streaming(
                 [
@@ -63,7 +67,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
                 ],
                 tbrs,
             )
-            flights = processor.read(pipeline)
+
         else:
             airports = (
                 pipeline
@@ -80,7 +84,10 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
                 )
             )
 
-            processor = Batch(tbrs, airports, settings.all_flights_path)
-            flights = processor.read(pipeline)
+            if settings.all_flights_path is None:
+                raise RuntimeError()
 
+            processor = Batch(tbrs, airports, settings.all_flights_path)
+
+        flights = processor.read(pipeline)
         processor.write(flights)
