@@ -29,15 +29,15 @@ class Flight(BaseModel):
     dep_time: str
     dep_delay: Optional[int] = None
     taxi_out: Optional[int] = None
-    wheels_off: str
-    wheels_on: str
+    wheels_off: Optional[str] = None
+    wheels_on: Optional[str] = None
     taxi_in: Optional[int] = None
     crs_arr_time: str
-    arr_time: str
+    arr_time: Optional[str] = None
     arr_delay: Optional[int] = None
     cancelled: bool
     diverted: bool
-    distance: float
+    distance: Optional[float] = None
 
     @classmethod
     def from_csv(cls, json_str: str) -> "Flight":  # pylint: disable=invalid-name
@@ -59,6 +59,20 @@ class Flight(BaseModel):
         :return:
         """
         return Flight(**normalize_dict_keys(data))
+
+    def serialize(self):
+        """
+
+        :return:
+        """
+        return self.model_dump()
+
+    def stringify(self):
+        """
+
+        :return:
+        """
+        return self.model_dump_json()
 
 
 class EventType(Enum):
