@@ -13,5 +13,6 @@ class Settings(BaseSettings):
     bq_tzcorr_table_name: str = "flights_tzcorr"
     bq_simevents_table_name: str = "flights_simevents"
     bq_streaming_events_table_name: str = "streaming_events"
+    bq_streaming_delays_table_name: str = "streaming_delays"
     all_flights_path: Optional[str] = None
     airport_csv_path: Optional[str] = None

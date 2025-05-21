@@ -5,8 +5,9 @@ import json
 from typing import Any
 
 import apache_beam as beam
+import numpy as np
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
-from dsflightsetl.flight import Flight, get_next_event
+from dsflightsetl.flight import Flight, get_next_event, EventType, StreamingDelay
 from dsflightsetl.message import Subscription
 from dsflightsetl.repository import ReadFlights, WriteFlights
 from dsflightsetl.tz_convert import UTCConvert
@@ -140,4 +141,88 @@ class Streaming(Processor):
                 beam.io.BigQueryDisposition.WRITE_APPEND,
                 beam.io.BigQueryDisposition.CREATE_NEVER,
             )
+        )
+
+    def write_streamimg_delays(self, streaming_delays: Any):
+        """
+
+        :param streaming_delays:
+        :return:
+        """
+        _ = (
+            streaming_delays
+            | "Serialize into dict of Flight model"
+            >> beam.Map(lambda streaming_delay: streaming_delay.serialize())
+            | "Write out to streaming delay table"
+            >> WriteFlights(
+                self._tbrs["streaming_delays"],
+                beam.io.BigQueryDisposition.WRITE_APPEND,
+                beam.io.BigQueryDisposition.CREATE_NEVER,
+            )
+        )
+
+    def count_by_airport(self, all_events: Any) -> Any:
+        """
+
+        :param all_events:
+        :return:
+        """
+        # Window length is 1 hour
+        duration = 60 * 60
+
+        # Emit every 5 min
+        emit_frequency = 5 * 60
+
+        return all_events | "byairport" >> beam.Map(
+            self._by_airport
+        ) | "window" > beam.WindowInto(
+            beam.window.SlidingWindows(duration, emit_frequency)
+        ) | "group" >> beam.GroupByKey() | "compute" >> beam.Map(
+            lambda x: self._mean_by_airport(x[0], x[1])
+        )
+
+    def _by_airport(self, event: Any) -> Any:
+        """
+
+        :param event:
+        :return:
+        """
+        return (
+            event["ORIGIN"],
+            event if event["EVENT_TYPE"] == EventType.DEPARTED.value else event["DEST"],
+            event,
+        )
+
+    def _mean_by_airport(self, airport: str, events: Any) -> StreamingDelay:
+        """
+
+        :param airport:
+        :param events:
+        :return:
+        """
+        arrived = [
+            event["ARR_DELAY"]
+            for event in events
+            if event["EVENT_TYPE"] == EventType.ARRIVED.value
+        ]
+        avg_arr_delay = float(np.mean(arrived)) if len(arrived) > 0 else None
+
+        departed = [
+            event["DEP_DELAY"]
+            for event in events
+            if event["EVENT_TYPE"] == EventType.DEPARTED.value
+        ]
+        avg_dep_delay = float(np.mean(departed)) if len(departed) > 0 else None
+
+        num_flights = len(events)
+        start_time = min(event["EVENT_TIME"] for event in events)
+        latest_time = max(event["EVENT_TIME"] for event in events)
+
+        return StreamingDelay(
+            airport=airport,
+            avg_arr_delay=avg_arr_delay,
+            avg_dep_delay=avg_dep_delay,
+            num_flights=num_flights,
+            start_time=start_time,
+            end_time=latest_time,
         )
