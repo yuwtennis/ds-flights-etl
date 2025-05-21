@@ -54,6 +54,11 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
             datasetId=settings.bq_dataset_name,
             tableId=settings.bq_streaming_events_table_name,
         ),
+        "streaming_delays": TableReference(
+            projectId=project_id,
+            datasetId=settings.bq_dataset_name,
+            tableId=settings.bq_streaming_delays_table_name,
+        ),
     }
 
     with beam.Pipeline(options=options) as pipeline:
@@ -91,3 +96,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
 
         flights = processor.read(pipeline)
         processor.write(flights)
+
+        if is_streaming:
+            streaming_delays = processor.count_by_airport(flights)
+            processor.write_streamimg_delays(streaming_delays)

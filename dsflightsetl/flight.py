@@ -162,6 +162,24 @@ class Wheelsoff(Departed):
         )
 
 
+class StreamingDelay(BaseModel):
+    """StreamingDelay entity"""
+
+    airport: str
+    avg_arr_delay: float
+    avg_dep_delay: float
+    num_flights: int
+    start_time: datetime
+    end_time: datetime
+
+    def serialize(self) -> dict[str, Any]:
+        """
+
+        :return:
+        """
+        return self.model_dump()
+
+
 def normalize_dict_keys(src_dict: dict[str, Any]):
     """
 
