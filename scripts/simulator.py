@@ -7,7 +7,7 @@ import sys
 import time
 from argparse import Namespace
 from datetime import datetime, UTC
-from typing import Generator
+from typing import Generator, Any
 
 from google.cloud import pubsub_v1, bigquery
 from google.cloud.pubsub_v1.publisher.futures import Future
@@ -128,6 +128,12 @@ def notify(  # pylint: disable=too-many-arguments
         tonotify[str(topic)] = []
 
     for event in events:
+        logging.debug(
+            "Event time: %s , type: %s, data: %s",
+            event.notify_time.isoformat(),
+            event.event_type,
+            event.event_data,
+        )
         if (
             compute_sleep_secs(
                 event.notify_time, sim_start_time, prog_start_time, speed_factor
@@ -152,7 +158,12 @@ def notify(  # pylint: disable=too-many-arguments
                 topics,
             )
         )
-        tonotify[str(topic_resource)].append(event.event_data)
+        tonotify[str(topic_resource)].append(
+            {
+                "timestamp": event.notify_time.isoformat(),  # rfc3339 format
+                "data": event.event_data,
+            }
+        )
 
     publish(publisher, topics, tonotify)
 
@@ -160,19 +171,23 @@ def notify(  # pylint: disable=too-many-arguments
 async def publish(
     publisher: pubsub_v1.PublisherClient,
     topics: list[Topic],
-    all_events: dict[str, list[Message]],
+    all_events: dict[str, list[dict[str, Any]]],
 ) -> None:
     """
 
     :param publisher:
     :param topics:
     :param all_events:
+        Events to publish per topic in dict format.
+        Keys for events are timestamp:int and data:str
     :return:
     """
     for topic in topics:
         logging.info("Publishing %s %s events", len(all_events), str(topic))
         for event in all_events[str(topic)]:
-            future: Future = publisher.publish(str(topic), event.encode())
+            future: Future = publisher.publish(
+                str(topic), event["data"].encode(), EventTimeStamp=event["timestamp"]
+            )
             logging.info("Published message ID is %s", future.result())
 
 

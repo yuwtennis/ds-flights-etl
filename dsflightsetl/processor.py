@@ -116,7 +116,9 @@ class StreamAgg(Processor):
             events[str(sub)] = (
                 pipeline
                 | f"read: {sub.event_type}"
-                >> beam.io.ReadFromPubSub(subscription=str(sub))
+                >> beam.io.ReadFromPubSub(
+                    subscription=str(sub), timestamp_attribute="EventTimeStamp"
+                )
                 | f"parse: {sub.event_type}"
                 >> beam.Map(lambda s: SimEvent(event_data=json.loads(s)))
             )
