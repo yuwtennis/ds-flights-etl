@@ -97,9 +97,10 @@ class Event(BaseModel, metaclass=abc.ABCMeta):
     def _to_bq_schema(self, event_type_fields: list[str]):
         """Serialize in to bq schema format"""
 
-        data = {}
+        flight = self.flight.model_dump(include=set(event_type_fields))
+        data = flight
 
-        event_type_data = self.flight.model_dump(include=set(event_type_fields))
+        event_type_data = flight
         event_type_data["event_type"] = self.event_type.value
         event_type_data["event_time"] = self.event_time
 
