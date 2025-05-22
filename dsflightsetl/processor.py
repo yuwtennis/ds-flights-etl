@@ -7,8 +7,8 @@ from typing import Any
 import apache_beam as beam
 import numpy as np
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
-from dsflightsetl.flight import Flight, get_next_event, EventType, StreamingDelay
-from dsflightsetl.message import Subscription
+from dsflightsetl.flight import get_next_event, EventType, StreamingDelay
+from dsflightsetl.message import Subscription, SimEvent
 from dsflightsetl.repository import ReadFlights, WriteFlights
 from dsflightsetl.tz_convert import UTCConvert
 
@@ -17,16 +17,15 @@ class Processor(metaclass=abc.ABCMeta):
     """Interface"""
 
     @abc.abstractmethod
-    def read(self, pipeline: Any):
+    def read(self, pipeline: beam.pipeline.Pipeline):
         """
 
         :param pipeline:
-        :param airports:
         :return:
         """
 
     @abc.abstractmethod
-    def write(self, flights: Any) -> None:
+    def write(self, events: Any) -> None:
         """
 
         :param flights:
@@ -34,7 +33,7 @@ class Processor(metaclass=abc.ABCMeta):
         """
 
 
-class Batch(Processor):
+class TzCorr(Processor):
     """Batch"""
 
     def __init__(
@@ -44,7 +43,7 @@ class Batch(Processor):
         self._airports = airports
         self._all_flights_path = all_flights_path
 
-    def read(self, pipeline: Any) -> Any:
+    def read(self, pipeline: beam.pipeline.Pipeline) -> Any:
         """For batch"""
         return (
             pipeline
@@ -52,17 +51,15 @@ class Batch(Processor):
             | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(self._airports))
         )
 
-    def write(self, flights: Any):
+    def write(self, events: Any):
         """
 
-        :param flights:
-        :param all_flights_path:
-        :param tbrs:
+        :param events:
         :return:
         """
         # To gcs
         _ = (
-            flights
+            events
             | "Serialize Flight into json string"
             >> beam.Map(lambda flight: flight.stringify())
             | "Write out to gcs"
@@ -71,12 +68,12 @@ class Batch(Processor):
 
         # To BQ as tz corrected events
         _ = (
-            flights
-            | "Serialize into dict of Flight model"
+            events
+            | "Prepare for insert into flight_tz_corr"
             >> beam.Map(lambda flight: flight.serialize())
             | "Write out to tzcorr table"
             >> WriteFlights(
-                self._tbrs["flight_tz_corr"],
+                self._tbrs["tz_corr"],
                 beam.io.BigQueryDisposition.WRITE_TRUNCATE,
                 beam.io.BigQueryDisposition.CREATE_NEVER,
             )
@@ -84,9 +81,10 @@ class Batch(Processor):
 
         # To BQ as simeevents with event types and time
         _ = (
-            flights
+            events
             | "As event" >> beam.FlatMap(get_next_event)
-            | "Serialize" >> beam.Map(lambda event: event.serialize())
+            | "Prepare for insert into simevents"
+            >> beam.Map(lambda event: event.serialize())
             | "Write out to simevents table"
             >> WriteFlights(
                 self._tbrs["simevents"],
@@ -96,7 +94,7 @@ class Batch(Processor):
         )
 
 
-class Streaming(Processor):
+class StreamAgg(Processor):
     """Streaming"""
 
     def __init__(
@@ -105,7 +103,7 @@ class Streaming(Processor):
         self._subscription_resource = topic_resources
         self._tbrs = tbrs
 
-    def read(self, pipeline: Any) -> Any:
+    def read(self, pipeline: beam.pipeline.Pipeline) -> Any:
         """
 
         :param pipeline:
@@ -113,28 +111,29 @@ class Streaming(Processor):
         """
         events = {}
 
+        # FIXME PubSub message should also treated as entity
         for sub in self._subscription_resource:
             events[str(sub)] = (
                 pipeline
                 | f"read: {sub.event_type}"
                 >> beam.io.ReadFromPubSub(subscription=str(sub))
                 | f"parse: {sub.event_type}"
-                >> beam.Map(lambda s: Flight.from_row_dict(json.loads(s)))
+                >> beam.Map(lambda s: SimEvent(event_data=json.loads(s)))
             )
 
         return (resource for path, resource in events.items()) | beam.Flatten()
 
-    def write(self, flights: Any):
+    def write(self, events: Any):
         """
 
-        :param flights:
+        :param events:
         :return:
         """
         # To BQ as simeevents with event types and time
         _ = (
-            flights
-            | "Serialize into dict of Flight model"
-            >> beam.Map(lambda flight: flight.serialize())
+            events
+            | "Prepare for insert into streaming events"
+            >> beam.Map(lambda s: s.event_data)
             | "Write out to streaming events table"
             >> WriteFlights(
                 self._tbrs["streaming_events"],
@@ -151,7 +150,7 @@ class Streaming(Processor):
         """
         _ = (
             streaming_delays
-            | "Serialize into dict of Flight model"
+            | "Prepare for insert into streaming delays"
             >> beam.Map(lambda streaming_delay: streaming_delay.serialize())
             | "Write out to streaming delay table"
             >> WriteFlights(
@@ -173,25 +172,25 @@ class Streaming(Processor):
         # Emit every 5 min
         emit_frequency = 5 * 60
 
-        return all_events | "byairport" >> beam.Map(
-            self._by_airport
-        ) | "window" > beam.WindowInto(
-            beam.window.SlidingWindows(duration, emit_frequency)
-        ) | "group" >> beam.GroupByKey() | "compute" >> beam.Map(
-            lambda x: self._mean_by_airport(x[0], x[1])
+        return (
+            all_events
+            | "byairport" >> beam.Map(self._by_airport)
+            | "window"
+            >> beam.WindowInto(beam.window.SlidingWindows(duration, emit_frequency))
+            | "group" >> beam.GroupByKey()
+            | "compute" >> beam.Map(lambda x: self._mean_by_airport(x[0], x[1]))
         )
 
-    def _by_airport(self, event: Any) -> Any:
+    def _by_airport(self, event: SimEvent) -> Any:
         """
 
         :param event:
         :return:
         """
-        return (
-            event["ORIGIN"],
-            event if event["EVENT_TYPE"] == EventType.DEPARTED.value else event["DEST"],
-            event,
-        )
+        if event.event_data["event_type"] == EventType.DEPARTED.value:
+            return event.event_data["origin"], event
+
+        return event.event_data["dest"], event
 
     def _mean_by_airport(self, airport: str, events: Any) -> StreamingDelay:
         """
@@ -201,22 +200,22 @@ class Streaming(Processor):
         :return:
         """
         arrived = [
-            event["ARR_DELAY"]
+            event.event_data["arr_delay"]
             for event in events
-            if event["EVENT_TYPE"] == EventType.ARRIVED.value
+            if event.event_data["event_type"] == EventType.ARRIVED.value
         ]
         avg_arr_delay = float(np.mean(arrived)) if len(arrived) > 0 else None
 
         departed = [
-            event["DEP_DELAY"]
+            event.event_data["dep_delay"]
             for event in events
-            if event["EVENT_TYPE"] == EventType.DEPARTED.value
+            if event.event_data["event_type"] == EventType.DEPARTED.value
         ]
         avg_dep_delay = float(np.mean(departed)) if len(departed) > 0 else None
 
         num_flights = len(events)
-        start_time = min(event["EVENT_TIME"] for event in events)
-        latest_time = max(event["EVENT_TIME"] for event in events)
+        start_time = min(event.event_data["event_time"] for event in events)
+        latest_time = max(event.event_data["event_time"] for event in events)
 
         return StreamingDelay(
             airport=airport,
