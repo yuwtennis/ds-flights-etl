@@ -25,7 +25,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     :param argv:
     :return:
     """
-    _, pipeline_args = parse_args(argv)  # type: ignore[attr-defined]
+    k_args, pipeline_args = parse_args(argv)  # type: ignore[attr-defined]
     options: PipelineOptions = PipelineOptions(pipeline_args)
     options.view_as(SetupOptions).save_main_session = save_main_sessions
 
@@ -89,7 +89,9 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
         )
         if settings.all_flights_path is None:
             raise RuntimeError()
-        processor = TzCorr(tbrs, airports, settings.all_flights_path, True)
+        processor = TzCorr(
+            tbrs, airports, settings.all_flights_path, k_args.sample_limit
+        )
 
     flights = processor.read(pipeline)
     processor.write(flights)

@@ -66,6 +66,7 @@ make package ; poetry run python3 __main__.py \
 --extra_package $EXTRA_PACKAGE \
 --max_num_workers=3 \
 --service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com
+--sample_rate 0.001
 ```
 
 #### StreamAgg

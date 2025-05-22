@@ -1,6 +1,6 @@
 """Deals with in to/out from bigquery"""
 
-from typing import Any
+from typing import Any, Optional
 import apache_beam as beam
 from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 from dsflightsetl.flight import Flight
@@ -9,10 +9,10 @@ from dsflightsetl.flight import Flight
 class ReadFlights(beam.PTransform):
     """Reading samples from flights table"""
 
-    def __init__(self, table_spec: TableReference, as_samples: bool = False):
+    def __init__(self, table_spec: TableReference, sample_rate: Optional[float] = None):
         super().__init__()
         self._table_spec = table_spec
-        self._as_samples = as_samples
+        self._sample_rate = sample_rate
 
     def expand(self, pcoll: Any) -> Any:  # pylint: disable=arguments-renamed
         """
@@ -20,7 +20,11 @@ class ReadFlights(beam.PTransform):
         :param pcoll:
         :return: PCollection with Flight entities
         """
-        as_sample = "WHERE rand() < 0.001" if self._as_samples else ""
+        as_sample = (
+            f"WHERE rand() < {self._sample_rate}"
+            if self._sample_rate is not None
+            else ""
+        )
 
         query = f"""
         SELECT
