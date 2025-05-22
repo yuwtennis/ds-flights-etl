@@ -37,17 +37,23 @@ class TzCorr(Processor):
     """Batch"""
 
     def __init__(
-        self, tbrs: dict[str, TableReference], airports: Any, all_flights_path: str
+        self,
+        tbrs: dict[str, TableReference],
+        airports: Any,
+        all_flights_path: str,
+        as_samples: bool,
     ):
         self._tbrs = tbrs
         self._airports = airports
         self._all_flights_path = all_flights_path
+        self._as_samples = as_samples
 
     def read(self, pipeline: beam.pipeline.Pipeline) -> Any:
         """For batch"""
         return (
             pipeline
-            | "Load flight samples as Json String" >> ReadFlights(self._tbrs["flights"])
+            | "Load flight samples as Json String"
+            >> ReadFlights(self._tbrs["flights"], self._as_samples)
             | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(self._airports))
         )
 

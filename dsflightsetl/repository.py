@@ -9,9 +9,10 @@ from dsflightsetl.flight import Flight
 class ReadFlights(beam.PTransform):
     """Reading samples from flights table"""
 
-    def __init__(self, table_spec: TableReference):
+    def __init__(self, table_spec: TableReference, as_samples: bool = False):
         super().__init__()
         self._table_spec = table_spec
+        self._as_samples = as_samples
 
     def expand(self, pcoll: Any) -> Any:  # pylint: disable=arguments-renamed
         """
@@ -19,6 +20,8 @@ class ReadFlights(beam.PTransform):
         :param pcoll:
         :return: PCollection with Flight entities
         """
+        as_sample = "WHERE rand() < 0.001" if self._as_samples else ""
+
         query = f"""
         SELECT
             CAST(FL_DATE AS STRING) AS FL_DATE,
@@ -40,7 +43,7 @@ class ReadFlights(beam.PTransform):
             CANCELLED,
             DIVERTED,
             DISTANCE
-        FROM {self._table_spec.projectId}.{self._table_spec.datasetId}.{self._table_spec.tableId} WHERE rand() < 0.001
+        FROM {self._table_spec.projectId}.{self._table_spec.datasetId}.{self._table_spec.tableId} {as_sample}
         """
 
         return (
