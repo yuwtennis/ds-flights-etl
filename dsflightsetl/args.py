@@ -13,5 +13,6 @@ def parse_args(argv: list) -> Tuple[Namespace, list[str]]:
 
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument("--sample_rate", type=float, default=None)
 
     return parser.parse_known_args(argv)

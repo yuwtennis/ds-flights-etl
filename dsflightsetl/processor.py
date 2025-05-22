@@ -2,7 +2,7 @@
 
 import abc
 import json
-from typing import Any
+from typing import Any, Optional
 
 import apache_beam as beam
 import numpy as np
@@ -41,19 +41,19 @@ class TzCorr(Processor):
         tbrs: dict[str, TableReference],
         airports: Any,
         all_flights_path: str,
-        as_samples: bool,
+        sample_rate: Optional[float] = None,
     ):
         self._tbrs = tbrs
         self._airports = airports
         self._all_flights_path = all_flights_path
-        self._as_samples = as_samples
+        self._sample_rate = sample_rate
 
     def read(self, pipeline: beam.pipeline.Pipeline) -> Any:
         """For batch"""
         return (
             pipeline
             | "Load flight samples as Json String"
-            >> ReadFlights(self._tbrs["flights"], self._as_samples)
+            >> ReadFlights(self._tbrs["flights"], self._sample_rate)
             | "UTC conversion" >> UTCConvert(beam.pvalue.AsDict(self._airports))
         )
 
