@@ -84,7 +84,7 @@ class EventType(Enum):
 
 
 class Event(BaseModel, metaclass=abc.ABCMeta):
-    """Base class for event entityt"""
+    """Base class for event entity"""
 
     event_type: EventType
     event_time: str
@@ -94,15 +94,18 @@ class Event(BaseModel, metaclass=abc.ABCMeta):
     def serialize(self) -> dict[str, Any]:
         """This method will be overrided"""
 
-    def _to_bq_schema(self, fields: list[str]):
+    def _to_bq_schema(self, event_type_fields: list[str]):
         """Serialize in to bq schema format"""
 
-        data = self.flight.model_dump(include=set(fields))
-        event_data = json.dumps(data)
+        data = {}
+
+        event_type_data = self.flight.model_dump(include=set(event_type_fields))
+        event_type_data["event_type"] = self.event_type.value
+        event_type_data["event_time"] = self.event_time
 
         data["event_type"] = self.event_type.value
         data["event_time"] = self.event_time
-        data["event_data"] = event_data
+        data["event_data"] = json.dumps(event_type_data)
 
         return data
 
@@ -166,8 +169,8 @@ class StreamingDelay(BaseModel):
     """StreamingDelay entity"""
 
     airport: str
-    avg_arr_delay: float
-    avg_dep_delay: float
+    avg_arr_delay: Optional[float] = None
+    avg_dep_delay: Optional[float] = None
     num_flights: int
     start_time: datetime
     end_time: datetime

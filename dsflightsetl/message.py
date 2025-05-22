@@ -1,16 +1,24 @@
 """Entities for simulator"""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
 
+# FIXME Use better name for the entity used in simulator
 class Message(BaseModel):
     """Message"""
 
     notify_time: datetime
     event_type: str
     event_data: str
+
+
+class SimEvent(BaseModel):
+    """Event from simulator"""
+
+    event_data: dict[str, Any]
 
 
 class PubSubResource(BaseModel):

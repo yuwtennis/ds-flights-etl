@@ -13,7 +13,7 @@ from apache_beam.io.gcp.internal.clients.bigquery import TableReference
 
 from dsflightsetl.airport import UsAirports, AirportLocation
 from dsflightsetl.args import parse_args
-from dsflightsetl.processor import Batch, Streaming, Processor
+from dsflightsetl.processor import Processor, StreamAgg, TzCorr
 from dsflightsetl.message import Subscription
 from dsflightsetl.setttings import Settings
 
@@ -61,42 +61,41 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
         ),
     }
 
-    with beam.Pipeline(options=options) as pipeline:
-        processor: Optional[Processor] = None
+    pipeline = beam.Pipeline(options=options)
 
-        if is_streaming:
-            processor = Streaming(
-                [
-                    Subscription(project_id=project_id, event_type=evt)
-                    for evt in ["departed", "arrived"]
-                ],
-                tbrs,
-            )
-
-        else:
-            airports = (
-                pipeline
-                | beam.io.ReadFromText(settings.airport_csv_path)
-                | "Only Us airports" >> UsAirports()
-                | "To Airport location entities"
-                >> beam.Map(lambda line: AirportLocation.from_airport_csv(line))
-                | "As tuple"
-                >> beam.Map(
-                    lambda airport_location: (
-                        airport_location.airport_seq_id,
-                        airport_location,
-                    )
+    processor: Optional[Processor] = None
+    if is_streaming:
+        processor = StreamAgg(
+            [
+                Subscription(project_id=project_id, event_type=evt)
+                for evt in ["departed", "arrived"]
+            ],
+            tbrs,
+        )
+    else:
+        airports = (
+            pipeline
+            | beam.io.ReadFromText(settings.airport_csv_path)
+            | "Only Us airports" >> UsAirports()
+            | "To Airport location entities"
+            >> beam.Map(lambda line: AirportLocation.from_airport_csv(line))
+            | "As tuple"
+            >> beam.Map(
+                lambda airport_location: (
+                    airport_location.airport_seq_id,
+                    airport_location,
                 )
             )
+        )
+        if settings.all_flights_path is None:
+            raise RuntimeError()
+        processor = TzCorr(tbrs, airports, settings.all_flights_path)
 
-            if settings.all_flights_path is None:
-                raise RuntimeError()
+    flights = processor.read(pipeline)
+    processor.write(flights)
 
-            processor = Batch(tbrs, airports, settings.all_flights_path)
+    if is_streaming:
+        streaming_delays = processor.count_by_airport(flights)
+        processor.write_streamimg_delays(streaming_delays)
 
-        flights = processor.read(pipeline)
-        processor.write(flights)
-
-        if is_streaming:
-            streaming_delays = processor.count_by_airport(flights)
-            processor.write_streamimg_delays(streaming_delays)
+    pipeline.run()
