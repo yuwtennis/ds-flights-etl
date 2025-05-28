@@ -90,7 +90,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
         if settings.all_flights_path is None:
             raise RuntimeError()
         processor = TzCorr(
-            tbrs, airports, settings.all_flights_path, k_args.sample_limit
+            tbrs, airports, settings.all_flights_path, k_args.sample_rate
         )
 
     flights = processor.read(pipeline)
