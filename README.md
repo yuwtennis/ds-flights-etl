@@ -66,7 +66,30 @@ make package ; poetry run python3 __main__.py \
 --extra_package $EXTRA_PACKAGE \
 --max_num_workers=3 \
 --service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com
---sample_rate 0.001
+```
+
+##### Note
+You can restrict the amount of data to transform by using `--sample_rate`
+
+```shell
+export REGION=asia-east1
+export PROJECT=$(gcloud config get core/project)
+export BQ_STAGING_LOCATION="gs://${PROJECT}-cf-staging/flights/staging/"
+export BQ_TEMP_LOCATION="gs://${PROJECT}-cf-staging/flights/temp/"
+export ALL_FLIGHTS_PATH="gs://${PROJECT}-cf-staging/flights/tzcorr/all_flights.txt"
+export AIRPORT_CSV_PATH="gs://${PROJECT}-cf-staging/bts/airport.csv"
+export EXTRA_PACKAGE=dist/dsflightsetl-$(poetry version -s)-py3-none-any.whl
+make package ; poetry run python3 __main__.py \
+--runner=DataflowRunner \
+--job_name=timecorr \
+--region=$REGION \
+--project=$PROJECT \
+--staging_location=$BQ_STAGING_LOCATION \
+--temp_location=$BQ_TEMP_LOCATION \
+--extra_package $EXTRA_PACKAGE \
+--max_num_workers=3 \
+--service_account_email=svc-dataflow-flight-job@dsongcp-452504.iam.gserviceaccount.com \
+--sample_rate=0.001
 ```
 
 #### StreamAgg
