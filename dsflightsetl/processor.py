@@ -184,7 +184,7 @@ class StreamAgg(Processor):
             all_events
             | "byairport" >> beam.Map(self._by_airport)
             | "window"
-            >> beam.WindowInto(beam.window.SlidingWindows(duration, emit_frequency))
+            >> beam.WindowInto(beam.window.SlidingWindows(duration, emit_frequency))  # type: ignore
             | "group" >> beam.GroupByKey()
             | "compute" >> beam.Map(lambda x: self._mean_by_airport(x[0], x[1]))
         )

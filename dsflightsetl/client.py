@@ -96,7 +96,7 @@ def run(argv: list[str], save_main_sessions: bool = True) -> None:
     flights = processor.read(pipeline)
     processor.write(flights)
 
-    if is_streaming:
+    if is_streaming and isinstance(processor, StreamAgg):
         streaming_delays = processor.count_by_airport(flights)
         processor.write_streamimg_delays(streaming_delays)
 
