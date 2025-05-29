@@ -80,18 +80,21 @@ def extract(
     :param table_id:
     :return:
     """
+    # Invalid events will fail with aggregation thus exclude in the query
     sql = f"""
     SELECT
-        EVENT_TYPE AS event_type,
-        EVENT_TIME AS notify_time,
-        EVENT_DATA AS event_data
+        event_type,
+        event_time AS notify_time,
+        event_data
     FROM
         {dataset_id}.{table_id}
     WHERE
-        EVENT_TIME >= @start_time
-        AND EVENT_TIME < @end_time
+        event_time >= @start_time
+        AND event_time < @end_time
+        AND diverted = false
+        AND cancelled = false
     ORDER BY
-        EVENT_TIME ASC
+        event_time ASC
     """
 
     job_config = bigquery.QueryJobConfig(
@@ -165,7 +168,7 @@ def notify(  # pylint: disable=too-many-arguments
             }
         )
 
-    publish(publisher, topics, tonotify)
+    asyncio.run(publish(publisher, topics, tonotify))
 
 
 async def publish(
